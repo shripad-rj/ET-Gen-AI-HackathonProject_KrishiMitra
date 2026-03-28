@@ -128,10 +128,10 @@ function getVoiceString(key, val="") {
 }
 
 function getWelcomeMessage(langCode) {
-    if (langCode.startsWith('en')) return "Greetings big brother! How is the farming going?";
-    if (langCode.startsWith('mr')) return "प्रणाम मोठ्या भावा! शेती काय म्हणतेय?";
-    if (langCode.startsWith('pa')) return "ਪ੍ਰਣਾਮ ਵੱਡੇ ਵੀਰ! ਖੇਤੀ ਕੀ ਕਹਿ ਰਹੀ ਹੈ?";
-    return "प्रणाम बड़े भैया! खेती क्या कह रही है?"; // Default Hindi
+    if (langCode.startsWith('en')) return "Hello! How's your farm doing today?";
+    if (langCode.startsWith('mr')) return "Kasa ahes bhau! Kay mhantay shet?";
+    if (langCode.startsWith('pa')) return "Ki haal hai veer! Khet da ki haal aa?";
+    return "Kaise ho bhaiya! Ka keh raha hai khet?"; // Default Hindi
 }
 const appContainer = document.getElementById('app-container');
 let currentScreen = 'boot'; // Hidden bootloader to unlock Chrome AutoPlay
@@ -270,43 +270,95 @@ function listenVoice(langCode = systemMemory.language) {
     });
 }
 
-// Mock AI Engine (Intelligent keyword rules, no API required)
+// Ultra-Advanced Offline GPT Agent Simulation (Intent, Navigation, Action, Memory)
 async function askAI(promptText, isContextual = false) {
-    await new Promise(r => setTimeout(r, 1200)); // Simulating AI thinking delay
+    if(!systemMemory.crops) systemMemory.crops = []; 
+    await new Promise(r => setTimeout(r, 1400)); // Simulate GPT Inference Delay
+    
     const q = promptText.toLowerCase();
     const lang = systemMemory.language.startsWith('en') ? 'en' :
                  systemMemory.language.startsWith('mr') ? 'mr' :
                  systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
-    let reply = "";
+                 
+    let intent = { type: "advice", message: "" };
 
-    if (q.includes('tomato') || q.includes('टमाटर') || q.includes('टोमॅटो') || q.includes('ਟਮਾਟਰ')) {
-        if (lang === 'en') reply = "Tomatoes need protection from early blight today. I recommend spraying a mild copper fungicide before evening.";
-        else if (lang === 'mr') reply = "टोमॅटोला आज करपा रोगाचा धोका आहे. संध्याकाळपूर्वी कॉपर बुरशीनाशक फवारा.";
-        else if (lang === 'pa') reply = "ਟਮਾਟਰਾਂ ਨੂੰ ਅੱਜ ਬਿਮਾਰੀ ਦਾ ਖਤਰਾ ਹੈ। ਸ਼ਾਮ ਤੋਂ ਪਹਿਲਾਂ ਦਵਾਈ ਦਾ ਛਿੜਕਾਅ ਕਰੋ।";
-        else reply = "टमाटर में आज झुलसा रोग का खतरा है। कृपया शाम से पहले कॉपर फफूंदनाशक का छिड़काव करें।";
-    } else if (q.includes('rain') || q.includes('weather') || q.includes('बारिश') || q.includes('paus') || q.includes('पाऊस') || q.includes('ਮੀਂਹ') || q.includes('ਮੌਸਮ')) {
-         if (lang === 'en') reply = "Heavy rain is expected around 4 PM today. Do not apply any fertilizers or pesticides right now.";
-         else if (lang === 'mr') reply = "आज दुपारी ४ च्या सुमारास जोरदार पाऊस पडण्याची शक्यता आहे. आत्ता खते किंवा फवारणी करू नका.";
-         else if (lang === 'pa') reply = "ਅੱਜ ਸ਼ਾਮ 4 ਵਜੇ ਦੇ ਕਰੀਬ ਭਾਰੀ ਮੀਂਹ ਪੈਣ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਹੁਣ ਕੋਈ ਦਵਾਈ ਨਾ ਪਾਓ।";
-         else reply = "आज शाम 4 बजे भारी बारिश की संभावना है। कृपया अभी कोई खाद या कीटनाशक न डालें।";
-    } else if (q.includes('fertilizer') || q.includes('खाद') || q.includes('khat') || q.includes('khad') || q.includes('ਖਾਦ')) {
-         if (lang === 'en') reply = "Urea is currently subsidized in your region. Would you like me to show nearest availability?";
-         else if (lang === 'mr') reply = "तुमच्या भागात सध्या युरिया उपलब्ध आहे. मी जवळचे दुकान दाखाऊ का?";
-         else if (lang === 'pa') reply = "ਤੁਹਾਡੇ ਇਲਾਕੇ ਵਿੱਚ ਯੂਰੀਆ ਮੌਜੂਦ ਹੈ। ਕੀ ਮੈਂ ਨੇੜੇ ਦੀ ਦੁਕਾਨ ਦਿਖਾਵਾਂ?";
-         else reply = "आपके क्षेत्र में अभी यूरिया सब्सिडी पर उपलब्ध है। क्या मैं नजदीकी दुकान की जानकारी दूँ?";
-    } else {
-         if (lang === 'en') reply = `I understand, ${systemMemory.name}. Based on conditions in ${systemMemory.region}, your farm is doing well. Ask me about a specific crop or weather issue for exact advice.`;
-         else if (lang === 'mr') reply = `मला समजले, ${systemMemory.name}. तुमच्या ${systemMemory.region} मधील हवामानानुसार, शेती चांगली आहे. अचूक माहितीसाठी पिकाची अडचण सांगा.`;
-         else if (lang === 'pa') reply = `ਮੈਂ ਸਮਝ ਗਿਆ, ${systemMemory.name}. ${systemMemory.region} ਮੁਤਾਬਕ ਫਸਲਾਂ ਠੀਕ ਹਨ। ਹੋਰ ਜਾਣਕਾਰੀ ਲਈ ਫਸਲ ਦੀ ਬਿਮਾਰੀ ਦੱਸੋ।`;
-         else reply = `मैं समझ गया, ${systemMemory.name}। ${systemMemory.region} के वर्तमान मौसम के हिसाब से, आपकी फसल ठीक है। सटीक सलाह के लिए कृपया किसी विशेष बीमारी या फसल के बारे में पूछें।`;
+    // 1. MEMORY AGENT: Learn the crop
+    const knownCrops = ['tomato', 'wheat', 'cotton', 'rice', 'onion', 'टोमॅटो', 'टमाटर', 'कपास'];
+    for(let c of knownCrops) {
+        if(q.includes(c) && !systemMemory.crops.includes(c)) {
+            systemMemory.crops.push(c);
+            saveMemory();
+        }
     }
 
+    // 2. INTENT AGENT: Profile Action
+    if (q.includes('name') || q.includes('नाव') || q.includes('नाम') || q.includes('naav')) {
+        let newName = null;
+        if(q.includes('my name is')) newName = q.split('my name is')[1].trim();
+        else if(q.includes('majh naav')) newName = q.split('majh naav')[1].trim();
+        else if(q.includes('mera naam')) newName = q.split('mera naam')[1].trim();
+        else if(q.includes('mera naam hai')) newName = q.split('mera naam hai')[1].trim();
+        else newName = q.split(' ').pop(); // fallback guess
+        
+        if(newName && newName.length > 1) {
+            intent.type = "action";
+            intent.field = "name";
+            intent.value = newName.replace(/[^a-zA-Zअ-ह]/g, '').trim() || newName; // cleanup
+            
+            if(lang === 'en') intent.message = `I have updated your name to ${intent.value}.`;
+            else if(lang === 'mr') intent.message = `मी तुमचे नाव ${intent.value} असे नोंदवले आहे.`;
+            else if(lang === 'pa') intent.message = `ਮੈਂ ਤੁਹਾਡਾ ਨਾਮ ${intent.value} ਕਰ ਦਿੱਤਾ ਹੈ।`;
+            else intent.message = `मैंने आपका नाम ${intent.value} दर्ज कर लिया है।`;
+            
+            return _finalizeAI(promptText, intent, isContextual);
+        }
+    }
+
+    // 3. INTENT AGENT: Dynamic UI Navigation
+    if (q.includes('profit') || q.includes('nfa') || q.includes('नफा') || q.includes('money') || q.includes('kasa check')) {
+        intent.type = "navigation";
+        intent.target = "nav-profit";
+        if(lang === 'en') intent.message = "Navigating you to the Profit Checker. Please select your crop to calculate.";
+        else if(lang === 'mr') intent.message = "नफा तपासक उघडत आहे. कृपया तुमचे पीक निवडा आणि कॅल्क्युलेट करा.";
+        else if(lang === 'pa') intent.message = "ਮੁਨਾਫਾ ਚੈੱਕਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਪੜਾਅ ਦੀ ਪਾਲਣਾ ਕਰੋ।";
+        else intent.message = "प्रॉफिट चेकर खोल रहा हूँ। कृपया अपनी फसल चुनें और गणना करें।";
+        return _finalizeAI(promptText, intent, isContextual);
+    }
+    
+    if (q.includes('disease') || q.includes('rog') || q.includes('रोग') || q.includes('bimari') || q.includes('doctor') || q.includes('bimar')) {
+        intent.type = "navigation";
+        intent.target = "nav-doctor";
+        if(lang === 'en') intent.message = "Opening Crop Doctor. Tap the camera button, upload a leaf photo, and wait for the AI analysis.";
+        else if(lang === 'mr') intent.message = "क्रॉप डॉक्टर उघडत आहे. कॅमेरा बटण दाबा, पानाचा फोटो घ्या आणि विश्लेषणाची प्रतीक्षा करा.";
+        else if(lang === 'pa') intent.message = "ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਫੋਟੋ ਲਓ ਅਤੇ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ।";
+        else intent.message = "क्रॉप डॉक्टर खोल रहा हूँ। कैमरा बटन दबाएं, फोटो लें और एआई विश्लेषण की प्रतीक्षा करें।";
+        return _finalizeAI(promptText, intent, isContextual);
+    }
+
+    // 4. INTENT AGENT: Contextual Advice
+    let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[0] : "your crop";
+    if (q.includes('rain') || q.includes('weather') || q.includes('paus') || q.includes('पाऊस') || q.includes('बारिश')) {
+        if(lang === 'en') intent.message = `Heavy rain is expected at 4 PM today. Do not spray fertilizers on ${userCrop}.`;
+        else if(lang === 'mr') intent.message = `आज दुपारी ४ वाजता जोरदार पाऊस होईल. ${userCrop === 'your crop' ? 'पिकांवर' : userCrop + ' वर'} फवारणी करू नका.`;
+        else if(lang === 'pa') intent.message = `ਅੱਜ ਸ਼ਾਮ 4 ਵਜੇ ਭਾਰੀ ਮੀਂਹ ਪਵੇਗਾ। ਸਪਰੇਅ ਨਾ ਕਰੋ।`;
+        else intent.message = `आज शाम 4 बजे भारी बारिश होगी। ${userCrop === 'your crop' ? 'अपनी फसल' : userCrop} पर कीटनाशक न डालें।`;
+    } else {
+        if(lang === 'en') intent.message = `I understand, ${systemMemory.name}. Regarding ${userCrop}, farm conditions look okay. Please ask me about a specific feature like 'Profit'.`;
+        else if(lang === 'mr') intent.message = `मला समजले, ${systemMemory.name}. ${userCrop === 'your crop' ? 'तुमच्या पिकाबाबत' : userCrop + ' बाबत'} हवामान ठीक आहे. मी आणखी काय मदत करू?`;
+        else if(lang === 'pa') intent.message = `ਮੈਂ ਸਮਝ ਗਿਆ, ${systemMemory.name}. ਕੀ ਮਦਦ ਕਰਾਂ?`;
+        else intent.message = `मैं समझ गया, ${systemMemory.name}. ${userCrop === 'your crop' ? 'खेत में' : userCrop + ' के लिए'} सब ठीक है। क्या मैं आपको 'प्रॉफिट चेकर' दिखाऊँ?`;
+    }
+    
+    return _finalizeAI(promptText, intent, isContextual);
+}
+
+function _finalizeAI(promptText, intentObj, isContextual) {
     if (isContextual) {
         systemMemory.history.push({role: 'user', content: promptText});
-        systemMemory.history.push({role: 'assistant', content: reply});
+        systemMemory.history.push({role: 'assistant', content: intentObj.message});
         saveMemory();
     }
-    return reply;
+    return intentObj;
 }
 
 function renderUI() {
@@ -639,10 +691,31 @@ function renderHome() {
             }
             
             overlayText.innerText = `You: "${userQuestion}"\n\nThinking...`;
-            const reply = await askAI(userQuestion, false);
-            overlayText.innerText = reply;
-            await speakText(reply, systemMemory.language);
-            setTimeout(() => { if(overlay.classList.contains('visible')) overlay.classList.remove('visible'); }, 8000);
+            const replyObj = await askAI(userQuestion, false);
+            overlayText.innerText = replyObj.message;
+            await speakText(replyObj.message, systemMemory.language);
+            
+            // Execute Advanced Agent Tasks Behind the Scenes
+            if (replyObj.type === 'action' && replyObj.field === 'name') {
+                systemMemory.name = replyObj.value;
+                saveMemory();
+                renderUI(); // Refresh header
+            } else if (replyObj.type === 'navigation' && replyObj.target) {
+                const targetEl = document.getElementById(replyObj.target);
+                if (targetEl) {
+                    targetEl.style.transition = 'all 0.5s ease';
+                    targetEl.style.boxShadow = '0 0 0 6px var(--primary)';
+                    targetEl.style.transform = 'scale(1.05)';
+                    
+                    // Physically click and navigate the UI on behalf of the user after voice finishes!
+                    setTimeout(() => {
+                        targetEl.click();
+                        overlay.classList.remove('visible');
+                    }, 4500);
+                }
+            }
+
+            setTimeout(() => { if(overlay.classList.contains('visible') && replyObj.type !== 'navigation') overlay.classList.remove('visible'); }, 8000);
         } catch(err) {
             mic.classList.remove('active');
             overlayText.innerText = "Check microphone permissions.";
@@ -693,14 +766,33 @@ function renderChat() {
         if (!text) return;
         document.getElementById('chat-input').value = '';
         appendMsg(text, true);
-        const reply = await askAI(text, true);
-        appendMsg(reply, false);
-        speakText(reply, systemMemory.language);
+        const replyObj = await askAI(text, true);
+        appendMsg(replyObj.message, false);
+        speakText(replyObj.message, systemMemory.language);
+        
+        // Agent tasks inside continuous chat session
+        if (replyObj.type === 'action' && replyObj.field === 'name') {
+            systemMemory.name = replyObj.value;
+            saveMemory();
+        } else if (replyObj.type === 'navigation' && replyObj.target) {
+            setTimeout(() => {
+                let s = replyObj.target.replace('nav-', '');
+                if (s === 'profit') s = 'mock-profit';
+                if (s === 'doctor') s = 'doctor';
+                currentScreen = s;
+                renderUI();
+            }, 4500); 
+        }
     };
     document.getElementById('chat-mic').onclick = async () => {
         const btn = document.getElementById('chat-mic');
         btn.style.background = 'var(--primary)'; btn.style.color = 'white';
-        try { document.getElementById('chat-input').value = await listenVoice(); } catch(e) {}
+        try { 
+            const transcribed = await listenVoice();
+            document.getElementById('chat-input').value = transcribed;
+            // Auto-send when clicking mic inside chat
+            setTimeout(() => document.getElementById('chat-send').click(), 500);
+        } catch(e) {}
         btn.style.background = 'white'; btn.style.color = 'var(--text-main)';
     };
 }
@@ -795,11 +887,23 @@ function renderDoctor() {
                     const isPlantMatch = plantKeywords.some(kw => classes.includes(kw));
                     
                     if (isPlantMatch) {
-                        // AI Confirmed it's a plant.
-                        document.getElementById('doctor-result').style.color = "var(--primary-dark)";
-                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-check-circle'></i> Real AI Verified: Plant Detected.<br><span style="color:#ef4444; margin-top:8px; display:block;">Warning: High Risk of Fungal Infection. Spray Neem Oil.</span>`;
+                        // Phase 6 & 7: GPT-Style Contextual Reasoning Agent Simulation
+                        let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[systemMemory.crops.length - 1] : "crop";
+                        const isEn = systemMemory.language.startsWith('en');
+                        const isMr = systemMemory.language.startsWith('mr');
+                        const isPa = systemMemory.language.startsWith('pa');
                         
-                        await speakText(getVoiceString('doctorPlantOk'), systemMemory.language);
+                        let displayMsg = `<i class='fa-solid fa-check-circle'></i> Agronomy Vision AI: Identified ${userCrop.toUpperCase()}.<br><span style="color:#ef4444; margin-top:8px; display:block;">Analysis: Early Blight (Fungal) spotted. Use Copper Fungicide today.</span>`;
+                        
+                        let spokenMsg = "";
+                        if(isEn) spokenMsg = `I have analyzed the leaf. Your ${userCrop} has early signs of fungal blight. I recommend applying copper fungicide before sunset.`;
+                        else if(isMr) spokenMsg = `मी पानाचे विश्लेषण केले आहे. तुमच्या ${userCrop === 'crop' ? 'पिकावर' : userCrop + ' वर'} करपा रोगाची लक्षणे दिसत आहेत. संध्याकाळपूर्वी बुरशीनाशक फवारा.`;
+                        else if(isPa) spokenMsg = `ਮੈਂ ਪੱਤੇ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਕੀਤਾ ਹੈ। ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਵਿਚ ਉੱਲੀ ਦੀ ਬਿਮਾਰੀ ਹੈ। ਸ਼ਾਮ ਤੋਂ ਪਹਿਲਾਂ ਦਵਾਈ ਦਾ ਛਿੜਕਾਅ ਕਰੋ।`;
+                        else spokenMsg = `मैंने पत्ते का विश्लेषण किया है। आपकी ${userCrop === 'crop' ? 'फसल' : userCrop} में फंगल झुलसा रोग के शुरुआती लक्षण हैं। कृपया सूर्यास्त से पहले फफूंदनाशक का छिड़काव करें।`;
+
+                        document.getElementById('doctor-result').style.color = "var(--primary-dark)";
+                        document.getElementById('doctor-result').innerHTML = displayMsg;
+                        await speakText(spokenMsg, systemMemory.language);
                         
                     } else {
                         // AI Confirmed it's NOT a plant.

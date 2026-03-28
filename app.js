@@ -66,6 +66,54 @@ const voiceTranslations = {
         en: (guess) => `This looks like a ${guess}, not a crop. Please take a clear picture of the leaves.`,
         mr: (guess) => `हे पीक किंवा झाड असल्याचे दिसत नाही, हा एक ${guess} आहे. कृपया पानांचा स्पष्ट फोटो घ्या.`,
         pa: (guess) => `ਇਹ ਕੋਈ ਫਸਲ ਜਾਂ ਪੌਦਾ ਨਹੀਂ ਲੱਗਦਾ, ਇਹ ਇੱਕ ${guess} ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਪੱਤਿਆਂ ਦੀ ਸਪਸ਼ਟ ਤਸਵੀਰ ਲਓ।`
+    },
+    tapStart: {
+        hi: "कृषिमित्र में आपका स्वागत है। आगे बढ़ने के लिए कृपया स्क्रीन पर टैप करें।",
+        en: "Welcome to KrishiMitra. Tap the screen to continue.",
+        mr: "कृषि मित्र मध्ये आपले स्वागत आहे. पुढे जाण्यासाठी स्क्रीनवर टॅप करा.",
+        pa: "ਕ੍ਰਿਸ਼ੀਮਿੱਤਰ ਵਿੱਚ ਤੁਹਾਡਾ ਸੁਆਗਤ ਹੈ। ਅੱਗੇ ਵਧਣ ਲਈ ਸਕਰੀਨ 'ਤੇ ਟੈਪ ਕਰੋ।"
+    },
+    splashPrompt: {
+        hi: "नमस्ते! मैं आपका कृषिमित्र हूँ। कृपया अपनी भाषा चुनें।",
+        en: "Hello! I am your KrishiMitra. Please select your language.",
+        mr: "नमस्कार! मी तुमचा कृषिमित्र आहे. कृपया तुमची भाषा निवडा.",
+        pa: "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਤੁਹਾਡਾ ਕ੍ਰਿਸ਼ੀਮਿੱਤਰ ਹਾਂ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੀ ਭਾਸ਼ਾ ਚੁਣੋ।"
+    },
+    mockProfit: {
+        hi: "यह आपकी फसल पर मुनाफे का अनुमान है।",
+        en: "Here is the estimated profit for your crop.",
+        mr: "येथे आपल्या पिकावरील नफ्याचा अंदाज आहे.",
+        pa: "ਇੱਥੇ ਤੁਹਾਡੀ ਫਸਲ 'ਤੇ ਮੁਨਾਫੇ ਦਾ ਅਨੁਮਾਨ ਹੈ।"
+    },
+    mockWeather: {
+        hi: "आज बारिश होने की संभावना है। कृपया खाद न डालें।",
+        en: "It is likely to rain today. Please do not apply fertilizer.",
+        mr: "आज पाऊस पडण्याची शक्यता आहे. कृपया खते टाकू नका.",
+        pa: "ਅੱਜ ਮੀਂਹ ਪੈਣ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਖਾਦ ਨਾ ਪਾਓ।"
+    },
+    mockSell: {
+        hi: "पास की मंडी में टमाटर के दाम सबसे अच्छे हैं।",
+        en: "The prices of tomatoes are best in the nearest market.",
+        mr: "जवळच्या मंडईत टोमॅटोला चांगला भाव आहे.",
+        pa: "ਨੇੜੇ ਦੀ ਮੰਡੀ ਵਿੱਚ ਟਮਾਟਰਾਂ ਦੀ ਕੀਮਤ ਸਭ ਤੋਂ ਵਧੀਆ ਹੈ।"
+    },
+    mockComm: {
+        hi: "आपके क्षेत्र के किसान यहाँ चर्चा कर रहे हैं।",
+        en: "Farmers in your area are discussing here.",
+        mr: "तुमच्या भागातील शेतकरी येथे चर्चा करत आहेत.",
+        pa: "ਤੁਹਾਡੇ ਖੇਤਰ ਦੇ ਕਿਸਾਨ ਇੱਥੇ ਚਰਚਾ ਕਰ ਰਹੇ ਹਨ।"
+    },
+    profileVoice: {
+        hi: "यह आपकी प्रोफाइल है।",
+        en: "This is your profile.",
+        mr: "हे तुझे प्रोफाइल आहे.",
+        pa: "ਇਹ ਤੁਹਾਡੀ ਪ੍ਰੋਫਾਈਲ ਹੈ।"
+    },
+    micError: {
+         hi: "कृपया फिर से प्रयास करें। (Could not hear you.)",
+         en: "Please try again. (Could not hear you.)",
+         mr: "कृपया पुन्हा प्रयत्न करा. (ऐकू आले नाही.)",
+         pa: "ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ। (ਸੁਣ ਨਹੀਂ ਸਕਿਆ।)"
     }
 };
 
@@ -80,10 +128,10 @@ function getVoiceString(key, val="") {
 }
 
 function getWelcomeMessage(langCode) {
-    if (langCode.startsWith('en')) return "Hello! How's your farm doing today?";
-    if (langCode.startsWith('mr')) return "Kasa ahes bhau! Kay mhantay shet?";
-    if (langCode.startsWith('pa')) return "Ki haal hai veer! Khet da ki haal aa?";
-    return "Kaise ho bhaiya! Ka keh raha hai khet?"; // Default Hindi
+    if (langCode.startsWith('en')) return "Greetings big brother! How is the farming going?";
+    if (langCode.startsWith('mr')) return "प्रणाम मोठ्या भावा! शेती काय म्हणतेय?";
+    if (langCode.startsWith('pa')) return "ਪ੍ਰਣਾਮ ਵੱਡੇ ਵੀਰ! ਖੇਤੀ ਕੀ ਕਹਿ ਰਹੀ ਹੈ?";
+    return "प्रणाम बड़े भैया! खेती क्या कह रही है?"; // Default Hindi
 }
 const appContainer = document.getElementById('app-container');
 let currentScreen = 'boot'; // Hidden bootloader to unlock Chrome AutoPlay
@@ -92,12 +140,26 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const synthesis = window.speechSynthesis;
 let activeUtterance = null;
 
+// Preload voices to fix the Chrome/Edge blank voice bug
+if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = () => synthesis.getVoices();
+}
+
 async function speakText(text, langCode = systemMemory.language) {
     if (!text) return;
     if (synthesis.speaking) synthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = langCode;
+    
+    // Aggressively bind the correct native voice (prevents English voice from muting native scripts)
+    let voices = synthesis.getVoices();
+    let prefix = langCode.split('-')[0];
+    let voice = voices.find(v => v.lang === langCode) || voices.find(v => v.lang.startsWith(prefix));
+    if (voice) {
+        utterance.voice = voice;
+    }
+
     utterance.volume = 1;
     utterance.rate = 0.95; 
     activeUtterance = utterance; // GC fix
@@ -217,17 +279,17 @@ async function askAI(promptText, isContextual = false) {
                  systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
     let reply = "";
 
-    if (q.includes('tomato') || q.includes('टमाटर') || q.includes('टोमॅटो')) {
+    if (q.includes('tomato') || q.includes('टमाटर') || q.includes('टोमॅटो') || q.includes('ਟਮਾਟਰ')) {
         if (lang === 'en') reply = "Tomatoes need protection from early blight today. I recommend spraying a mild copper fungicide before evening.";
         else if (lang === 'mr') reply = "टोमॅटोला आज करपा रोगाचा धोका आहे. संध्याकाळपूर्वी कॉपर बुरशीनाशक फवारा.";
         else if (lang === 'pa') reply = "ਟਮਾਟਰਾਂ ਨੂੰ ਅੱਜ ਬਿਮਾਰੀ ਦਾ ਖਤਰਾ ਹੈ। ਸ਼ਾਮ ਤੋਂ ਪਹਿਲਾਂ ਦਵਾਈ ਦਾ ਛਿੜਕਾਅ ਕਰੋ।";
         else reply = "टमाटर में आज झुलसा रोग का खतरा है। कृपया शाम से पहले कॉपर फफूंदनाशक का छिड़काव करें।";
-    } else if (q.includes('rain') || q.includes('weather') || q.includes('बारिश') || q.includes('paus') || q.includes('पाऊस')) {
+    } else if (q.includes('rain') || q.includes('weather') || q.includes('बारिश') || q.includes('paus') || q.includes('पाऊस') || q.includes('ਮੀਂਹ') || q.includes('ਮੌਸਮ')) {
          if (lang === 'en') reply = "Heavy rain is expected around 4 PM today. Do not apply any fertilizers or pesticides right now.";
          else if (lang === 'mr') reply = "आज दुपारी ४ च्या सुमारास जोरदार पाऊस पडण्याची शक्यता आहे. आत्ता खते किंवा फवारणी करू नका.";
          else if (lang === 'pa') reply = "ਅੱਜ ਸ਼ਾਮ 4 ਵਜੇ ਦੇ ਕਰੀਬ ਭਾਰੀ ਮੀਂਹ ਪੈਣ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਹੁਣ ਕੋਈ ਦਵਾਈ ਨਾ ਪਾਓ।";
          else reply = "आज शाम 4 बजे भारी बारिश की संभावना है। कृपया अभी कोई खाद या कीटनाशक न डालें।";
-    } else if (q.includes('fertilizer') || q.includes('खाद') || q.includes('khat') || q.includes('khad')) {
+    } else if (q.includes('fertilizer') || q.includes('खाद') || q.includes('khat') || q.includes('khad') || q.includes('ਖਾਦ')) {
          if (lang === 'en') reply = "Urea is currently subsidized in your region. Would you like me to show nearest availability?";
          else if (lang === 'mr') reply = "तुमच्या भागात सध्या युरिया उपलब्ध आहे. मी जवळचे दुकान दाखाऊ का?";
          else if (lang === 'pa') reply = "ਤੁਹਾਡੇ ਇਲਾਕੇ ਵਿੱਚ ਯੂਰੀਆ ਮੌਜੂਦ ਹੈ। ਕੀ ਮੈਂ ਨੇੜੇ ਦੀ ਦੁਕਾਨ ਦਿਖਾਵਾਂ?";
@@ -283,7 +345,7 @@ function renderBoot() {
 function renderTapToStart() {
     // Attempt Auto-Play Voice (May be blocked by browser until tap)
     setTimeout(() => {
-        speakText("कृषिमित्र में आपका स्वागत है। आगे बढ़ने के लिए कृपया स्क्रीन पर टैप करें।", "hi-IN");
+        speakText(getVoiceString('tapStart'), systemMemory.language);
     }, 500);
 
     appContainer.innerHTML = `
@@ -330,7 +392,7 @@ async function renderSplash() {
 
     // Splash Voice Prompt - Now guaranteed to work because user tapped!
     setTimeout(() => {
-        speakText("नमस्ते! मैं आपका कृषिमित्र हूँ। कृपया अपनी भाषा चुनें।", "hi-IN");
+        speakText(getVoiceString('splashPrompt'), systemMemory.language);
     }, 400);
 
     document.querySelectorAll('.lang-card').forEach(c => {
@@ -383,12 +445,36 @@ function renderOnboarding() {
                     </select>
                 </div>
                 <button class="btn-primary" id="finish-onboard" style="margin-top: 32px; box-shadow: var(--shadow-floating);">Create Account</button>
+                
+                <div style="display: flex; align-items: center; margin: 8px 0;">
+                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
+                    <span style="padding: 0 10px; color: var(--text-muted); font-size: 0.9rem; font-weight: 600;">OR</span>
+                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
+                </div>
+                
+                <button id="google-signin-btn" style="display: flex; align-items: center; justify-content: center; gap: 12px; background: white; border: 1px solid var(--border-color); border-radius: var(--radius-pill); padding: 16px; font-weight: 600; color: var(--text-main); font-size: 1.05rem; cursor: pointer; box-shadow: var(--shadow-sm); width: 100%; transition: var(--transition);">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo" style="width: 24px; height: 24px;">
+                    Sign in with Google
+                </button>
             </div>
         </div>
     `;
     setTimeout(() => {
         speakText(getVoiceString('onboarding'), systemMemory.language);
     }, 400);
+
+    // Mock Google Sign In
+    document.getElementById('google-signin-btn').onclick = async () => {
+        systemMemory.name = "Kisan (Google)";
+        systemMemory.phone = "9999999999";
+        systemMemory.region = "Smart Village";
+        systemMemory.gender = "Other";
+        saveMemory();
+        
+        await speakText(getVoiceString('accountCreated'), systemMemory.language);
+        currentScreen = 'home';
+        renderUI();
+    };
 
     document.getElementById('mic-name').onclick = async () => {
         try { document.getElementById('ob-name').value = "Listening...";
@@ -547,7 +633,7 @@ function renderHome() {
             
             if(!userQuestion || userQuestion.length < 2) {
                 overlayText.innerText = "Did not catch that. Please tap again.";
-                speakText("कृपया फिर से प्रयास करें। (Could not hear you.)", systemMemory.language);
+                speakText(getVoiceString('micError'), systemMemory.language);
                 setTimeout(() => { overlay.classList.remove('visible'); }, 3000);
                 return;
             }
@@ -666,7 +752,7 @@ function renderDoctor() {
                     btn.disabled = false;
                     btn.style.opacity = '1';
                     document.getElementById('vision-status').innerHTML = "Neural Network Loaded! <br><span style='font-size:0.85rem; color:var(--primary)'>Real Local AI Ready</span>";
-                    speakText("क्रॉप डॉक्टर तैयार है! फोटो खींचने के लिए हरे बटन को दबाएं। (AI Vision Ready.)", systemMemory.language);
+                    speakText(getVoiceString('doctorReady'), systemMemory.language);
                 }
             });
         } else {
@@ -733,16 +819,16 @@ function renderDoctor() {
 function renderMockFeature(typeId) {
     let title = "Feature"; let icon = "fa-star"; let htmlContent = ""; let voicePrompt = "";
     if (typeId === 'mock-profit') {
-        title = "Profit Checker"; icon = "fa-arrow-trend-up"; voicePrompt = "यहाँ आपकी फसल पर मुनाफे का अनुमान है।";
+        title = "Profit Checker"; icon = "fa-arrow-trend-up"; voicePrompt = getVoiceString('mockProfit');
         htmlContent = `<div class="metric-card"><div class="metric-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div><div class="metric-content"><h4>Estimated Net Profit</h4><p>₹1,25,000</p></div></div><div class="metric-card"><div class="metric-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1)"><i class="fa-solid fa-bug"></i></div><div class="metric-content"><h4>Pest Risk Today</h4><p style="color:#ef4444">High (85%)</p></div></div><div style="background:white; padding:16px; border-radius:16px; box-shadow:var(--shadow-md); margin-top:24px"><img src="https://quickchart.io/chart?c={type:'line',data:{labels:['Jan','Feb','Mar','Apr'],datasets:[{label:'Income',data:[50,60,70,120],fill:true,borderColor:'green',backgroundColor:'rgba(16,185,129,0.1)'}]}}" style="width:100%;"></div>`;
     } else if (typeId === 'mock-weather') {
-        title = "Weather & Alerts"; icon = "fa-cloud-sun-rain"; voicePrompt = "आज बारिश होने की संभावना है। कृपया खाद न डालें।";
+        title = "Weather & Alerts"; icon = "fa-cloud-sun-rain"; voicePrompt = getVoiceString('mockWeather');
         htmlContent = `<div style="text-align:center; padding: 40px 0; background:linear-gradient(to bottom, #dbeafe, white); border-radius: 24px; box-shadow:var(--shadow-md); margin-bottom:24px;"><i class="fa-solid fa-cloud-showers-water" style="font-size: 5rem; color: #3b82f6; margin-bottom:16px;"></i><h1 style="font-size: 4rem; color:#1e293b;">28°C</h1><p class="text-muted" style="font-size:1.1rem; font-weight:600">Heavy Rain at 4:00 PM</p></div><div class="list-item" style="border:2px solid #ef4444; background:#fef2f2"><span style="font-weight:700; color:#ef4444"><i class="fa-solid fa-triangle-exclamation"></i> AI Alert</span><span style="color:#991b1b; font-weight:600">Do NOT spray fertilizer today.</span></div>`;
     } else if (typeId === 'mock-sell') {
-        title = "Sell Smart (Mandi Prices)"; icon = "fa-wallet"; voicePrompt = "पास की मंडी में टमाटर के दाम सबसे अच्छे हैं।";
+        title = "Sell Smart (Mandi Prices)"; icon = "fa-wallet"; voicePrompt = getVoiceString('mockSell');
         htmlContent = `<div class="list-item"><span>Pune Mandi - Tomato</span><span style="color:var(--primary); font-weight:800; font-size:1.2rem;">₹45/kg <i class="fa-solid fa-arrow-up"></i></span></div><div class="list-item"><span>Nashik Mandi - Onion</span><span style="color:var(--primary); font-weight:800; font-size:1.2rem;">₹22/kg <i class="fa-solid fa-arrow-up"></i></span></div><div class="list-item"><span>Mumbai - Wheat</span><span style="color:#ef4444; font-weight:800; font-size:1.2rem;">₹30/kg <i class="fa-solid fa-arrow-down"></i></span></div><button class="btn-primary" style="margin-top:24px; box-shadow:var(--shadow-floating);">Find Nearest Buyer</button>`;
     } else if (typeId === 'mock-comm') {
-        title = "Farmer Community"; icon = "fa-users"; voicePrompt = "आपके क्षेत्र के किसान यहाँ चर्चा कर रहे हैं।";
+        title = "Farmer Community"; icon = "fa-users"; voicePrompt = getVoiceString('mockComm');
         htmlContent = `<div class="list-item" style="flex-direction:column; align-items:flex-start; gap:8px;"><div style="font-weight:800; color:var(--text-main);">Ramesh K. (2km away)</div><p style="color:var(--text-muted); font-size:1.05rem;">Maza tomato la infection zala ahe, kay karu?</p><span style="font-weight:700; font-size:0.85rem; color:var(--primary);">12 Comments</span></div><div class="list-item" style="flex-direction:column; align-items:flex-start; gap:8px;"><div style="font-weight:800; color:#4f46e5;">Govt Scheme Alert: PM Kisan</div><p style="color:var(--text-muted); font-size:1.05rem;">Subsidised seeds available till Monday at local center.</p><span style="font-weight:700; font-size:0.85rem; color:var(--primary);">45 Likes</span></div>`;
     }
     appContainer.innerHTML = `<div class="screen"><div class="view-header" style="margin: -24px -24px 24px -24px;"><i class="fa-solid fa-arrow-left" id="back-mock" style="font-size: 1.2rem; cursor:pointer;"></i><h3 style="flex:1; text-align:center;">${title}</h3><i class="fa-solid ${icon}" style="color: var(--primary);"></i></div><div class="mock-dashboard">${htmlContent}</div></div>${getBottomNavHTML('none')}`;
@@ -790,7 +876,7 @@ function renderProfile() {
         currentScreen = 'splash';
         renderUI();
     };
-    setTimeout(() => speakText("यह आपकी प्रोफाइल है। (This is your profile.)", systemMemory.language), 300);
+    setTimeout(() => speakText(getVoiceString('profileVoice'), systemMemory.language), 300);
 }
 
 

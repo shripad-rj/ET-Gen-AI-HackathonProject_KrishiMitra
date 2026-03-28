@@ -273,7 +273,7 @@ function listenVoice(langCode = systemMemory.language) {
 // Ultra-Advanced Offline GPT Agent Simulation (Intent, Navigation, Action, Memory)
 async function askAI(promptText, isContextual = false) {
     if(!systemMemory.crops) systemMemory.crops = []; 
-    await new Promise(r => setTimeout(r, 1400)); // Simulate GPT Inference Delay
+    await new Promise(r => setTimeout(r, 1600)); // Simulate GPT Inference Delay
     
     const q = promptText.toLowerCase();
     const lang = systemMemory.language.startsWith('en') ? 'en' :
@@ -283,70 +283,124 @@ async function askAI(promptText, isContextual = false) {
     let intent = { type: "advice", message: "" };
 
     // 1. MEMORY AGENT: Learn the crop
-    const knownCrops = ['tomato', 'wheat', 'cotton', 'rice', 'onion', 'टोमॅटो', 'टमाटर', 'कपास'];
-    for(let c of knownCrops) {
-        if(q.includes(c) && !systemMemory.crops.includes(c)) {
-            systemMemory.crops.push(c);
+    const knownCrops = {
+        'tomato': 'tomato', 'टमाटर': 'tomato', 'टोमॅटो': 'tomato', 'ਟਮਾਟਰ': 'tomato',
+        'wheat': 'wheat', 'गेहूं': 'wheat', 'गहू': 'wheat', 'ਕਣਕ': 'wheat',
+        'cotton': 'cotton', 'कपास': 'cotton', 'कापूस': 'cotton', 'ਕਪਾਹ': 'cotton',
+        'onion': 'onion', 'प्याज': 'onion', 'कांदा': 'onion', 'ਪਿਆਜ਼': 'onion',
+        'sugarcane': 'sugarcane', 'गन्ना': 'sugarcane', 'ऊस': 'sugarcane', 'ਗੰਨਾ': 'sugarcane'
+    };
+    
+    for(let kp in knownCrops) {
+        if(q.includes(kp) && !systemMemory.crops.includes(knownCrops[kp])) {
+            systemMemory.crops.push(knownCrops[kp]);
             saveMemory();
         }
     }
+    let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[systemMemory.crops.length - 1] : "crop";
 
-    // 2. INTENT AGENT: Profile Action
+    // 2. CONTEXTUAL AWARENESS (History Memory)
+    let lastUserMessage = systemMemory.history.length > 1 ? systemMemory.history[systemMemory.history.length - 2].content.toLowerCase() : "";
+    if (q === 'yes' || q === 'ho' || q === 'haan' || q.includes('more') || q.includes('aur batao') || q.includes('anjhi') || q.includes('tell me')) {
+        if(lastUserMessage.includes('fertilizer') || lastUserMessage.includes('खत') || lastUserMessage.includes('खाद')) {
+            if(lang === 'en') intent.message = `For ${userCrop}, if the soil is deficient, apply 50kg Urea per acre split into two doses. Make sure the soil is moist before application.`;
+            else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'पिकासाठी' : userCrop + ' साठी'} मातीची चाचणी करा. कमतरता असल्यास एकरी ५० किलो युरिया दोन टप्प्यात द्या. जमिनीमध्ये ओलावा असल्याची खात्री करा.`;
+            else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਲਈ ਇੱਕ ਏਕੜ ਵਿੱਚ 50 ਕਿਲੋ ਯੂਰੀਆ ਦੋ ਵਾਰ ਪਾਓ। ਖੇਤ ਵਿੱਚ ਨਮੀ ਹੋਣੀ ਚਾਹੀਦੀ ਹੈ।`;
+            else intent.message = `${userCrop === 'crop' ? 'फसल' : userCrop} के लिए, 50 किलो यूरिया प्रति एकड़ दो भागों में डालें। छिड़काव से पहले मिट्टी में नमी सुनिश्चित करें।`;
+            return _finalizeAI(promptText, intent, isContextual);
+        }
+    }
+
+    // 3. INTENT AGENT: Profile Action
     if (q.includes('name') || q.includes('नाव') || q.includes('नाम') || q.includes('naav')) {
         let newName = null;
         if(q.includes('my name is')) newName = q.split('my name is')[1].trim();
         else if(q.includes('majh naav')) newName = q.split('majh naav')[1].trim();
         else if(q.includes('mera naam')) newName = q.split('mera naam')[1].trim();
         else if(q.includes('mera naam hai')) newName = q.split('mera naam hai')[1].trim();
-        else newName = q.split(' ').pop(); // fallback guess
+        else if(q.split(' ').length <= 2) newName = q; // if they just said "Rahul"
         
         if(newName && newName.length > 1) {
             intent.type = "action";
             intent.field = "name";
-            intent.value = newName.replace(/[^a-zA-Zअ-ह]/g, '').trim() || newName; // cleanup
-            
-            if(lang === 'en') intent.message = `I have updated your name to ${intent.value}.`;
-            else if(lang === 'mr') intent.message = `मी तुमचे नाव ${intent.value} असे नोंदवले आहे.`;
-            else if(lang === 'pa') intent.message = `ਮੈਂ ਤੁਹਾਡਾ ਨਾਮ ${intent.value} ਕਰ ਦਿੱਤਾ ਹੈ।`;
-            else intent.message = `मैंने आपका नाम ${intent.value} दर्ज कर लिया है।`;
-            
+            intent.value = newName.replace(/[^a-zA-Zअ-ह]/g, '').trim() || newName; 
+            if(lang === 'en') intent.message = `I have updated your profile name to ${intent.value}. How else can I assist you today?`;
+            else if(lang === 'mr') intent.message = `मी तुमचे नाव ${intent.value} असे नोंदवले आहे. मी आणखी काय मदत करू शकतो?`;
+            else if(lang === 'pa') intent.message = `ਮੈਂ ਤੁਹਾਡਾ ਨਾਮ ${intent.value} ਰੱਖ ਦਿੱਤਾ ਹੈ। ਹੋਰ ਕੀ ਮਦਦ ਕਰਾਂ?`;
+            else intent.message = `मैंने आपका नाम ${intent.value} दर्ज कर लिया है। अब मैं आपकी और क्या सहायता कर सकता हूँ?`;
             return _finalizeAI(promptText, intent, isContextual);
         }
     }
 
-    // 3. INTENT AGENT: Dynamic UI Navigation
+    // 4. INTENT AGENT: Dynamic UI Navigation
     if (q.includes('profit') || q.includes('nfa') || q.includes('नफा') || q.includes('money') || q.includes('kasa check')) {
-        intent.type = "navigation";
-        intent.target = "nav-profit";
-        if(lang === 'en') intent.message = "Navigating you to the Profit Checker. Please select your crop to calculate.";
-        else if(lang === 'mr') intent.message = "नफा तपासक उघडत आहे. कृपया तुमचे पीक निवडा आणि कॅल्क्युलेट करा.";
-        else if(lang === 'pa') intent.message = "ਮੁਨਾਫਾ ਚੈੱਕਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਪੜਾਅ ਦੀ ਪਾਲਣਾ ਕਰੋ।";
-        else intent.message = "प्रॉफिट चेकर खोल रहा हूँ। कृपया अपनी फसल चुनें और गणना करें।";
+        intent.type = "navigation"; intent.target = "nav-profit";
+        if(lang === 'en') intent.message = "Navigating you to the Profit Checker. You can estimate your revenue and market trends here.";
+        else if(lang === 'mr') intent.message = "नफा तपासक उघडत आहे. येथे तुम्ही तुमचा नफा आणि बाजारातील कल तपासू शकता.";
+        else if(lang === 'pa') intent.message = "ਮੁਨਾਫਾ ਚੈੱਕਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਆਪਣਾ ਮਾਰਕੀਟ ਰੇਟ ਦੇਖੋ।";
+        else intent.message = "प्रॉफिट चेकर खोल रहा हूँ। यहाँ आप अपने मुनाफे का अनुमान लगा सकते हैं।";
         return _finalizeAI(promptText, intent, isContextual);
     }
-    
     if (q.includes('disease') || q.includes('rog') || q.includes('रोग') || q.includes('bimari') || q.includes('doctor') || q.includes('bimar')) {
-        intent.type = "navigation";
-        intent.target = "nav-doctor";
-        if(lang === 'en') intent.message = "Opening Crop Doctor. Tap the camera button, upload a leaf photo, and wait for the AI analysis.";
-        else if(lang === 'mr') intent.message = "क्रॉप डॉक्टर उघडत आहे. कॅमेरा बटण दाबा, पानाचा फोटो घ्या आणि विश्लेषणाची प्रतीक्षा करा.";
-        else if(lang === 'pa') intent.message = "ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਫੋਟੋ ਲਓ ਅਤੇ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ।";
-        else intent.message = "क्रॉप डॉक्टर खोल रहा हूँ। कैमरा बटन दबाएं, फोटो लें और एआई विश्लेषण की प्रतीक्षा करें।";
+        intent.type = "navigation"; intent.target = "nav-doctor";
+        if(lang === 'en') intent.message = "Opening Crop Doctor. Please tap the camera, upload a clear picture of the affected leaf, and our AI will diagnose the disease.";
+        else if(lang === 'mr') intent.message = "क्रॉप डॉक्टर उघडत आहे. कृपया पानाचा स्वच्छ फोटो घ्या, आमचे AI विश्लेषण करेल.";
+        else if(lang === 'pa') intent.message = "ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਸਾਫ ਫੋਟੋ ਖਿੱਚੋ ਅਤੇ AI ਬਿਮਾਰੀ ਦੱਸੇਗਾ।";
+        else intent.message = "क्रॉप डॉक्टर खोल रहा हूँ। कृपया पत्ते की साफ तस्वीर लें और हमारा AI बीमारी की पहचान करेगा।";
         return _finalizeAI(promptText, intent, isContextual);
     }
 
-    // 4. INTENT AGENT: Contextual Advice
-    let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[0] : "your crop";
-    if (q.includes('rain') || q.includes('weather') || q.includes('paus') || q.includes('पाऊस') || q.includes('बारिश')) {
-        if(lang === 'en') intent.message = `Heavy rain is expected at 4 PM today. Do not spray fertilizers on ${userCrop}.`;
-        else if(lang === 'mr') intent.message = `आज दुपारी ४ वाजता जोरदार पाऊस होईल. ${userCrop === 'your crop' ? 'पिकांवर' : userCrop + ' वर'} फवारणी करू नका.`;
-        else if(lang === 'pa') intent.message = `ਅੱਜ ਸ਼ਾਮ 4 ਵਜੇ ਭਾਰੀ ਮੀਂਹ ਪਵੇਗਾ। ਸਪਰੇਅ ਨਾ ਕਰੋ।`;
-        else intent.message = `आज शाम 4 बजे भारी बारिश होगी। ${userCrop === 'your crop' ? 'अपनी फसल' : userCrop} पर कीटनाशक न डालें।`;
-    } else {
-        if(lang === 'en') intent.message = `I understand, ${systemMemory.name}. Regarding ${userCrop}, farm conditions look okay. Please ask me about a specific feature like 'Profit'.`;
-        else if(lang === 'mr') intent.message = `मला समजले, ${systemMemory.name}. ${userCrop === 'your crop' ? 'तुमच्या पिकाबाबत' : userCrop + ' बाबत'} हवामान ठीक आहे. मी आणखी काय मदत करू?`;
-        else if(lang === 'pa') intent.message = `ਮੈਂ ਸਮਝ ਗਿਆ, ${systemMemory.name}. ਕੀ ਮਦਦ ਕਰਾਂ?`;
-        else intent.message = `मैं समझ गया, ${systemMemory.name}. ${userCrop === 'your crop' ? 'खेत में' : userCrop + ' के लिए'} सब ठीक है। क्या मैं आपको 'प्रॉफिट चेकर' दिखाऊँ?`;
+    // 5. DEEP AGRONOMY KNOWLEDGE BASE (Multi-Sentence Expert Advice)
+    if (q.includes('yellow') || q.includes('pivla') || q.includes('पीले') || q.includes('peele')) {
+        if(lang === 'en') intent.message = `Yellowing leaves in ${userCrop} usually indicates Nitrogen deficiency or overwatering. Check the soil moisture first. If it's too wet, stop watering. Otherwise, apply a Nitrogen-rich fertilizer.`;
+        else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'पिकाची' : userCrop + ' ची'} पाने पिवळी पडणे हे नत्र (Nitrogen) ची कमतरता किंवा जास्त पाण्यामुळे असू शकते. जमिनीत ओलावा तपासा. गरज असेल तरच नत्रयुक्त खत द्या.`;
+        else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੇ ਪੱਤੇ ਪੀਲੇ ਹੋਣ ਦਾ ਮਤਲਬ ਨਾਈਟ੍ਰੋਜਨ ਦੀ ਕਮੀ ਜਾਂ ਜ਼ਿਆਦਾ ਪਾਣੀ ਹੋ ਸਕਦਾ ਹੈ। ਖੇਤ ਵਿੱਚ ਪਾਣੀ ਚੈੱਕ ਕਰੋ ਅਤੇ ਯੂਰੀਆ ਪਾਓ।`;
+        else intent.message = `${userCrop === 'crop' ? 'फसल' : userCrop} के पत्ते पीले होने का कारण नाइट्रोजन की कमी या अधिक पानी हो सकता है। मिट्टी की नमी जांचें और जरूरत पड़ने पर नाइट्रोजन युक्त खाद डालें।`;
+    } 
+    else if (q.includes('fertilizer') || q.includes('khat') || q.includes('khad') || q.includes('खाद') || q.includes('ਖਾਦ') || q.includes('urea')) {
+        if(lang === 'en') intent.message = `For optimal growth of ${userCrop}, using an NPK mix like 19:19:19 is highly recommended during the vegetative stage. Do you want to know the exact dosage?`;
+        else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'पिकाच्या' : userCrop + ' च्या'} चांगल्या वाढीसाठी 19:19:19 सारखे NPK खत वापरणे उत्तम आहे. तुम्हाला याचे अचूक प्रमाण जाणून घ्यायचे आहे का?`;
+        else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੇ ਵਾਧੇ ਲਈ NPK 19:19:19 ਖਾਦ ਬਹੁਤ ਵਧੀਆ ਹੈ। ਕੀ ਤੁਸੀਂ ਇਸਦੀ ਮਾਤਰਾ ਜਾਣਨਾ ਚਾਹੁੰਦੇ ਹੋ?`;
+        else intent.message = `${userCrop === 'crop' ? 'फसल' : userCrop} के अच्छे विकास के लिए NPK 19:19:19 खाद का उपयोग बहुत फायदेमंद होता है। क्या आप इसका सही मात्रा जानना चाहते हैं?`;
+    }
+    else if (q.includes('rain') || q.includes('weather') || q.includes('paus') || q.includes('पाऊस') || q.includes('बारिश') || q.includes('ਮੀਂਹ')) {
+        if(lang === 'en') intent.message = `Meteorological data indicates strong thunderstorms expected in your region around 4 PM today. It is critical that you delay any pesticide spraying on your ${userCrop} until tomorrow to avoid runoff.`;
+        else if(lang === 'mr') intent.message = `हवामान अंदाजानुसार आज दुपारी ४ वाजता तुमच्या भागात वादळी पाऊस येऊ शकतो. कृपया ${userCrop === 'crop' ? 'पिकावर' : userCrop + ' वर'} कोणतीही फवारणी उद्यापर्यंत पुढे ढकला.`;
+        else if(lang === 'pa') intent.message = `ਮੌਸਮ ਵਿਭਾਗ ਮੁਤਾਬਕ ਅੱਜ ਸ਼ਾਮ ਭਾਰੀ ਮੀਂਹ ਪੈ ਸਕਦਾ ਹੈ। ਆਪਣੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} 'ਤੇ ਕੋਈ ਵੀ ਸਪਰੇਅ ਕੱਲ੍ਹ ਤੱਕ ਨਾ ਕਰੋ।`;
+        else intent.message = `मौसम विभाग के अनुसार आज शाम 4 बजे भारी बारिश की संभावना है। कृपया अपनी ${userCrop === 'crop' ? 'फसल' : userCrop} पर किसी भी कीटनाशक का छिड़काव कल तक के लिए टाल दें।`;
+    } 
+    else if (q.includes('seed') || q.includes('biyane') || q.includes('beej') || q.includes('बीज') || q.includes('ਬੀਜ')) {
+        if(lang === 'en') intent.message = `Before sowing ${userCrop} seeds, treat them with Thiram or Captan at 2g per Kg. This prevents soil-borne fungal diseases and greatly improves germination rates.`;
+        else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'बियाणे' : userCrop + ' बियाणे'} पेरण्यापूर्वी त्यांना प्रति किलो २ ग्रॅम थायरम चोळा. यामुळे जमिनीतील बुरशीजन्य आजार टळतात आणि उगवण चांगली होते.`;
+        else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਬੀਜ' : userCrop} ਬੀਜਣ ਤੋਂ ਪਹਿਲਾਂ ਦਵਾਈ (Thiram) ਲਗਾਓ। ਇਸ ਨਾਲ ਉੱਲੀ ਤੋਂ ਬਚਾਅ ਹੁੰਦਾ ਹੈ ਅਤੇ ਫਸਲ ਵਧੀਆ ਉੱਗਦੀ ਹੈ।`;
+        else intent.message = `${userCrop === 'crop' ? 'बीज' : userCrop} बुवाई से पहले बीजों को 2 ग्राम थीरम प्रति किलो से उपचारित करें। इससे जड़ गलन रोग नहीं होता और अंकुरण बढ़ता है।`;
+    }
+    else {
+        // Fallback Conversation Array for extreme variety
+        const genericEn = [
+            `I'm listening, ${systemMemory.name}. As your KrishiMitra, I can help diagnose diseases, check weather impacts, or schedule fertilizers for your ${userCrop}. What's the main issue today?`,
+            `Could you elaborate a bit more? I specialize in agronomy and crop management. Whether it's ${userCrop} or managing soil health, I'm here to assist.`,
+            `That's an interesting point. How is the current weather affecting your ${userCrop}? We can open the Crop Doctor if you notice any spots on the leaves.`
+        ];
+        const genericHi = [
+            `मैं सुन रहा हूँ, ${systemMemory.name}। आपके कृषिमित्र के रूप में मैं ${userCrop === 'crop' ? 'फसल' : userCrop} की बीमारियों और खाद प्रबंधन में मदद कर सकता हूँ। आपकी मुख्य समस्या क्या है?`,
+            `कृपया थोड़ा और विस्तार से बताएं। मैं ${userCrop === 'crop' ? 'खेती' : userCrop} की उन्नत तकनीकों का विशेषज्ञ हूँ। मैं आपकी कैसे मदद करूँ?`,
+            `आपकी ${userCrop === 'crop' ? 'फसल' : userCrop} की वर्तमान स्थिति कैसी है? अगर पत्तों पर कोई दाग है, तो आप मुझे बस 'क्रॉप डॉक्टर' खोलने के लिए कह सकते हैं।`
+        ];
+        const genericMr = [
+            `मी ऐकत आहे, ${systemMemory.name}. तुमचा कृषिमित्र म्हणून मी ${userCrop === 'crop' ? 'पिकाचे' : userCrop + ' चे'} रोग आणि खत व्यवस्थापनात मदत करू शकतो. आज तुमची मुख्य समस्या काय आहे?`,
+            `कृपया अधिक माहिती सांगा. तुमच्या ${userCrop === 'crop' ? 'शेतीत' : userCrop + ' पिकात'} काही अडचण असल्यास आपण क्रॉप डॉक्टर वापरू शकतो.`,
+            `तुमच्या ${userCrop === 'crop' ? 'पिकाची' : userCrop + ' ची'} सध्याची स्थिती कशी आहे? पानांवर डाग असल्यास मला 'क्रॉप डॉक्टर उघड' असे सांगा.`
+        ];
+        const genericPa = [
+            `ਮੈਂ ਸੁਣ ਰਿਹਾ ਹਾਂ, ${systemMemory.name}। ਮੈਂ ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੇ ਰੋਗਾਂ ਅਤੇ ਖਾਦ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਅੱਜ ਕੀ ਸਮੱਸਿਆ ਹੈ?`,
+            `ਕਿਰਪਾ ਕਰਕੇ ਹੋਰ ਜਾਣਕਾਰੀ ਦਿਓ। ਜੇਕਰ ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਵਿੱਚ ਕੋਈ ਬਿਮਾਰੀ ਹੈ, ਤਾਂ ਮੈਨੂੰ 'ਕ੍ਰੌਪ ਡਾਕਟਰ' ਖੋਲ੍ਹਣ ਲਈ ਕਹੋ।`,
+            `ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੀ ਹੁਣ ਕੀ ਹਾਲਤ ਹੈ?`
+        ];
+        let arr = lang === 'en' ? genericEn : lang === 'mr' ? genericMr : lang === 'pa' ? genericPa : genericHi;
+        // Randomly rotate fallbacks based on history length so it doesn't repeat the exact same sentence!
+        let dice = systemMemory.history.length % 3;
+        intent.message = arr[dice] || arr[0];
     }
     
     return _finalizeAI(promptText, intent, isContextual);

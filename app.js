@@ -275,22 +275,39 @@ async function askAI(promptText, isContextual = false) {
     if(!systemMemory.crops) systemMemory.crops = []; 
     await new Promise(r => setTimeout(r, 1600)); // Simulate GPT Inference Delay
     
-    const q = promptText.toLowerCase();
+    // STEP 1: PREPROCESSING
+    const rawInput = promptText;
+    const q = promptText.toLowerCase().replace(/[^a-z0-9\u0900-\u097F\u0A00-\u0A7F\s]/gi, '').trim();
     const lang = systemMemory.language.startsWith('en') ? 'en' :
                  systemMemory.language.startsWith('mr') ? 'mr' :
                  systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
                  
     let intent = { type: "advice", message: "" };
 
-    // 1. MEMORY AGENT: Learn the crop
-    const knownCrops = {
-        'tomato': 'tomato', 'टमाटर': 'tomato', 'टोमॅटो': 'tomato', 'ਟਮਾਟਰ': 'tomato',
-        'wheat': 'wheat', 'गेहूं': 'wheat', 'गहू': 'wheat', 'ਕਣਕ': 'wheat',
-        'cotton': 'cotton', 'कपास': 'cotton', 'कापूस': 'cotton', 'ਕਪਾਹ': 'cotton',
-        'onion': 'onion', 'प्याज': 'onion', 'कांदा': 'onion', 'ਪਿਆਜ਼': 'onion',
-        'sugarcane': 'sugarcane', 'गन्ना': 'sugarcane', 'ऊस': 'sugarcane', 'ਗੰਨਾ': 'sugarcane'
+    // STEP 2: HYBRID INTENT MAPPING
+    const CORE_DICT = {
+        sell_smart_card: ['mandi', 'price', 'bhav', 'bazaar', 'rate', 'sell', 'market', 'vikri', 'paisa', 'paise', 'kimat', 'kimmat', 'dam', 'daam', 'mull'],
+        weather_card: ['weather', 'paus', 'rain', 'hawa', 'tapman', 'barish', 'temperature', 'cloud', 'dhag', 'meen', 'mausam', 'baarish', 'hawaaman', 'mee', 'meeh'],
+        profit_checker_card: ['profit', 'fayda', 'money', 'nufa', 'nfa', 'munafa', 'kamai', 'utpanna', 'income', 'labh'],
+        govt_schemes_card: ['scheme', 'yojana', 'loan', 'subsidy', 'sbsidi', 'bank', 'govt', 'government', 'karj', 'sahayya', 'kisan', 'pmkisan'],
+        crop_doctor: ['disease', 'daag', 'spot', 'kida', 'aali', 'sudi', 'rog', 'bimari', 'bimar', 'doctor', 'pivla', 'peela', 'yellow', 'brown', 'sukh', 'dry', 'leaf', 'pan', 'patte', 'keeda']
     };
-    
+
+    let matchedTarget = null;
+    for (let target in CORE_DICT) {
+        if (CORE_DICT[target].some(keyword => q.includes(keyword))) {
+            matchedTarget = target;
+            break;
+        }
+    }
+
+    const knownCrops = {
+        'tomato': 'tomato', 'टमाटर': 'tomato', 'टोमॅटो': 'tomato', 'ਟਮਾਟਰ': 'tomato', 'tamata': 'tomato', 'tamatar': 'tomato',
+        'wheat': 'wheat', 'गेहूं': 'wheat', 'गहू': 'wheat', 'ਕਣਕ': 'wheat', 'gehu': 'wheat', 'gahu': 'wheat', 'kanak': 'wheat',
+        'cotton': 'cotton', 'कपास': 'cotton', 'कापूस': 'cotton', 'ਕਪਾਹ': 'cotton', 'kapas': 'cotton', 'kapus': 'cotton', 'kapah': 'cotton',
+        'onion': 'onion', 'प्याज': 'onion', 'कांदा': 'onion', 'ਪਿਆਜ਼': 'onion', 'pyaz': 'onion', 'kanda': 'onion', 'piyaz': 'onion',
+        'sugarcane': 'sugarcane', 'गन्ना': 'sugarcane', 'ऊस': 'sugarcane', 'ਗੰਨਾ': 'sugarcane', 'ganna': 'sugarcane', 'us': 'sugarcane'
+    };
     for(let kp in knownCrops) {
         if(q.includes(kp) && !systemMemory.crops.includes(knownCrops[kp])) {
             systemMemory.crops.push(knownCrops[kp]);
@@ -298,103 +315,86 @@ async function askAI(promptText, isContextual = false) {
         }
     }
     let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[systemMemory.crops.length - 1] : "crop";
+    let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
 
-    // 2. CONTEXTUAL AWARENESS (History Memory)
-    let lastUserMessage = systemMemory.history.length > 1 ? systemMemory.history[systemMemory.history.length - 2].content.toLowerCase() : "";
-    if (q === 'yes' || q === 'ho' || q === 'haan' || q.includes('more') || q.includes('aur batao') || q.includes('anjhi') || q.includes('tell me')) {
-        if(lastUserMessage.includes('fertilizer') || lastUserMessage.includes('खत') || lastUserMessage.includes('खाद')) {
-            if(lang === 'en') intent.message = `For ${userCrop}, if the soil is deficient, apply 50kg Urea per acre split into two doses. Make sure the soil is moist before application.`;
-            else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'पिकासाठी' : userCrop + ' साठी'} मातीची चाचणी करा. कमतरता असल्यास एकरी ५० किलो युरिया दोन टप्प्यात द्या. जमिनीमध्ये ओलावा असल्याची खात्री करा.`;
-            else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਲਈ ਇੱਕ ਏਕੜ ਵਿੱਚ 50 ਕਿਲੋ ਯੂਰੀਆ ਦੋ ਵਾਰ ਪਾਓ। ਖੇਤ ਵਿੱਚ ਨਮੀ ਹੋਣੀ ਚਾਹੀਦੀ ਹੈ।`;
-            else intent.message = `${userCrop === 'crop' ? 'फसल' : userCrop} के लिए, 50 किलो यूरिया प्रति एकड़ दो भागों में डालें। छिड़काव से पहले मिट्टी में नमी सुनिश्चित करें।`;
-            return _finalizeAI(promptText, intent, isContextual);
-        }
-    }
-
-    // 3. INTENT AGENT: Profile Action
-    if (q.includes('name') || q.includes('नाव') || q.includes('नाम') || q.includes('naav')) {
+    if (q.includes('name ') || q.includes('नाव ') || q.includes('नाम ') || q.includes('naav ') || q.includes('naam ')) {
         let newName = null;
-        if(q.includes('my name is')) newName = q.split('my name is')[1].trim();
-        else if(q.includes('majh naav')) newName = q.split('majh naav')[1].trim();
-        else if(q.includes('mera naam')) newName = q.split('mera naam')[1].trim();
-        else if(q.includes('mera naam hai')) newName = q.split('mera naam hai')[1].trim();
-        else if(q.split(' ').length <= 2) newName = q; // if they just said "Rahul"
+        if(q.includes('is ')) newName = q.split('is ')[1].trim();
+        else if(q.includes('naav ')) newName = q.split('naav ')[1].trim();
+        else if(q.includes('naam ')) newName = q.split('naam ')[1].trim();
+        else if(q.split(' ').length <= 2) newName = q; 
         
         if(newName && newName.length > 1) {
-            intent.type = "action";
-            intent.field = "name";
-            intent.value = newName.replace(/[^a-zA-Zअ-ह]/g, '').trim() || newName; 
+            intent.type = "action"; intent.field = "name"; intent.value = newName.replace(/[^a-zA-Zअ-ह\s]/g, '').trim(); 
             if(lang === 'en') intent.message = `I have updated your profile name to ${intent.value}. How else can I assist you today?`;
             else if(lang === 'mr') intent.message = `मी तुमचे नाव ${intent.value} असे नोंदवले आहे. मी आणखी काय मदत करू शकतो?`;
             else if(lang === 'pa') intent.message = `ਮੈਂ ਤੁਹਾਡਾ ਨਾਮ ${intent.value} ਰੱਖ ਦਿੱਤਾ ਹੈ। ਹੋਰ ਕੀ ਮਦਦ ਕਰਾਂ?`;
             else intent.message = `मैंने आपका नाम ${intent.value} दर्ज कर लिया है। अब मैं आपकी और क्या सहायता कर सकता हूँ?`;
-            return _finalizeAI(promptText, intent, isContextual);
+            return _finalizeAI(rawInput, intent, isContextual);
         }
     }
 
-    // 4. INTENT AGENT: Dynamic UI Navigation
-    if (q.includes('profit') || q.includes('nfa') || q.includes('नफा') || q.includes('money') || q.includes('kasa check')) {
-        intent.type = "navigation"; intent.target = "nav-profit";
-        if(lang === 'en') intent.message = "Navigating you to the Profit Checker. You can estimate your revenue and market trends here.";
-        else if(lang === 'mr') intent.message = "नफा तपासक उघडत आहे. येथे तुम्ही तुमचा नफा आणि बाजारातील कल तपासू शकता.";
-        else if(lang === 'pa') intent.message = "ਮੁਨਾਫਾ ਚੈੱਕਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਆਪਣਾ ਮਾਰਕੀਟ ਰੇਟ ਦੇਖੋ।";
-        else intent.message = "प्रॉफिट चेकर खोल रहा हूँ। यहाँ आप अपने मुनाफे का अनुमान लगा सकते हैं।";
-        return _finalizeAI(promptText, intent, isContextual);
-    }
-    if (q.includes('disease') || q.includes('rog') || q.includes('रोग') || q.includes('bimari') || q.includes('doctor') || q.includes('bimar')) {
-        intent.type = "navigation"; intent.target = "nav-doctor";
-        if(lang === 'en') intent.message = "Opening Crop Doctor. Please tap the camera, upload a clear picture of the affected leaf, and our AI will diagnose the disease.";
-        else if(lang === 'mr') intent.message = "क्रॉप डॉक्टर उघडत आहे. कृपया पानाचा स्वच्छ फोटो घ्या, आमचे AI विश्लेषण करेल.";
-        else if(lang === 'pa') intent.message = "ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ। ਸਾਫ ਫੋਟੋ ਖਿੱਚੋ ਅਤੇ AI ਬਿਮਾਰੀ ਦੱਸੇਗਾ।";
-        else intent.message = "क्रॉप डॉक्टर खोल रहा हूँ। कृपया पत्ते की साफ तस्वीर लें और हमारा AI बीमारी की पहचान करेगा।";
-        return _finalizeAI(promptText, intent, isContextual);
+    // STEP 3: DECISION ENGINE
+    if (matchedTarget) {
+        intent.type = "navigation"; 
+        
+        if (matchedTarget === 'sell_smart_card') {
+            intent.target = "nav-sell";
+            if(lang === 'en') intent.message = "You want to check market prices. Taking you to the Sell Smart Mandi tracker.";
+            else if(lang === 'mr') intent.message = "तुम्हाला बाजारभाव पाहायचे आहेत. 'Sell Smart' मंडी ट्रॅकर उघडत आहे.";
+            else if(lang === 'pa') intent.message = "ਤੁਸੀਂ ਮੰਡੀ ਦਾ ਰੇਟ ਦੇਖਣਾ ਚਾਹੁੰਦੇ ਹੋ। 'Sell Smart' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = "आप मंडी के भाव देखना चाहते हैं। 'Sell Smart' मंडी ट्रैकर खोल रहा हूँ।";
+        }
+        else if (matchedTarget === 'weather_card') {
+            intent.target = "nav-weather";
+            if(lang === 'en') intent.message = "You asked about the weather. Opening the Weather & Rain Forecast.";
+            else if(lang === 'mr') intent.message = "तुम्हाला हवामान आणि पावसाचा अंदाज हवा आहे. हवामान अ‍ॅलर्ट उघडत आहे.";
+            else if(lang === 'pa') intent.message = "ਮੌਸਮ ਅਤੇ ਮੀਂਹ ਬਾਰੇ ਜਾਣਕਾਰੀ ਲਈ ਮੌਸਮ ਅਲਰਟ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = "आप मौसम की जानकारी चाहते हैं। मौसम और बारिश का अलर्ट खोल रहा हूँ।";
+        }
+        else if (matchedTarget === 'profit_checker_card') {
+            intent.target = "nav-profit";
+            if(lang === 'en') intent.message = "You want to estimate profit. Opening the Profit Checker.";
+            else if(lang === 'mr') intent.message = "नफा बघायचा आहे ना? नफा तपासक उघडत आहे.";
+            else if(lang === 'pa') intent.message = "ਮੁਨਾਫਾ ਚੈੱਕ ਕਰਨਾ ਹੈ? 'Profit Checker' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = "मुनाफे का अनुमान लगाना चाहते हैं? प्रॉफिट चेकर खोल रहा हूँ।";
+        }
+        else if (matchedTarget === 'govt_schemes_card') {
+            intent.target = "nav-comm"; 
+            if(lang === 'en') intent.message = "Looking for government schemes? Opening the Community board.";
+            else if(lang === 'mr') intent.message = "तुम्हाला सरकारी योजनांची माहिती हवी आहे का? आमची कम्युनिटी उघडत आहे.";
+            else if(lang === 'pa') intent.message = "ਸਰਕਾਰੀ ਸਕੀਮਾਂ ਦੀ ਜਾਣਕਾਰੀ ਲਈ 'Community' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = "आपको सरकारी योजनाओं की जानकारी चाहिए? कम्युनिटी बोर्ड खोल रहा हूँ।";
+        }
+        else if (matchedTarget === 'crop_doctor') {
+            intent.target = "nav-doctor";
+            if(lang === 'en') intent.message = "It sounds like a plant disease. Opening Crop Doctor, please upload a photo.";
+            else if(lang === 'mr') intent.message = "पिकावर रोग दिसतोय. क्रॉप डॉक्टर उघडत आहे, कृपया पानाचा फोटो घ्या.";
+            else if(lang === 'pa') intent.message = "ਰੋਗ ਲੱਗਦਾ ਹੈ। ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ, ਫੋਟੋ ਲਓ।";
+            else intent.message = "ऐसा लगता है कि फसल में कोई बीमारी है। क्रॉप डॉक्टर खोल रहा हूँ, कृपया फोटो अपलोड करें।";
+        }
+        return _finalizeAI(rawInput, intent, isContextual);
     }
 
-    // 5. DEEP AGRONOMY KNOWLEDGE BASE (Multi-Sentence Expert Advice)
-    // 5. DEEP AGRONOMY KNOWLEDGE BASE (Offline Database Lookup)
-    let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
-
-    if (q.includes('disease') || q.includes('rog') || q.includes('रोग') || q.includes('yellow') || q.includes('pivla') || q.includes('पीले') || q.includes('spot')) {
-        intent.message = KrishiKnowledgeDB[dbCropKey].disease[lang];
-    } 
-    else if (q.includes('fertilizer') || q.includes('khat') || q.includes('khad') || q.includes('खाद') || q.includes('ਖਾਦ') || q.includes('urea') || q.includes('npk')) {
+    if (q.includes('fertilizer') || q.includes('khat') || q.includes('khad') || q.includes('खाद') || q.includes('ਖਾਦ') || q.includes('urea') || q.includes('npk')) {
         intent.message = KrishiKnowledgeDB[dbCropKey].fertilizer[lang];
-    }
-    else if (q.includes('water') || q.includes('rain') || q.includes('paus') || q.includes('पाऊस') || q.includes('pani') || q.includes('सिंचाई') || q.includes('बारिश')) {
-        intent.message = KrishiKnowledgeDB[dbCropKey].water[lang];
+        return _finalizeAI(rawInput, intent, isContextual);
     } 
-    else if (q.includes('seed') || q.includes('biyane') || q.includes('beej') || q.includes('बीज') || q.includes('ਬੀਜ') || q.includes('sow')) {
+    else if (q.includes('seed') || q.includes('biyane') || q.includes('beej') || q.includes('बीज') || q.includes('ਬੀਜ') || q.includes('sow') || q.includes('perni')) {
         intent.message = KrishiKnowledgeDB[dbCropKey].seed[lang];
+        return _finalizeAI(rawInput, intent, isContextual);
     }
-    else {
-        // Fallback Conversation Array for extreme variety
-        const genericEn = [
-            `I'm listening, ${systemMemory.name}. As your KrishiMitra, I can help diagnose diseases, check weather impacts, or schedule fertilizers for your ${userCrop}. What's the main issue today?`,
-            `Could you elaborate a bit more? I specialize in agronomy and crop management. Whether it's ${userCrop} or managing soil health, I'm here to assist.`,
-            `That's an interesting point. How is the current weather affecting your ${userCrop}? We can open the Crop Doctor if you notice any spots on the leaves.`
-        ];
-        const genericHi = [
-            `मैं सुन रहा हूँ, ${systemMemory.name}। आपके कृषिमित्र के रूप में मैं ${userCrop === 'crop' ? 'फसल' : userCrop} की बीमारियों और खाद प्रबंधन में मदद कर सकता हूँ। आपकी मुख्य समस्या क्या है?`,
-            `कृपया थोड़ा और विस्तार से बताएं। मैं ${userCrop === 'crop' ? 'खेती' : userCrop} की उन्नत तकनीकों का विशेषज्ञ हूँ। मैं आपकी कैसे मदद करूँ?`,
-            `आपकी ${userCrop === 'crop' ? 'फसल' : userCrop} की वर्तमान स्थिति कैसी है? अगर पत्तों पर कोई दाग है, तो आप मुझे बस 'क्रॉप डॉक्टर' खोलने के लिए कह सकते हैं।`
-        ];
-        const genericMr = [
-            `मी ऐकत आहे, ${systemMemory.name}. तुमचा कृषिमित्र म्हणून मी ${userCrop === 'crop' ? 'पिकाचे' : userCrop + ' चे'} रोग आणि खत व्यवस्थापनात मदत करू शकतो. आज तुमची मुख्य समस्या काय आहे?`,
-            `कृपया अधिक माहिती सांगा. तुमच्या ${userCrop === 'crop' ? 'शेतीत' : userCrop + ' पिकात'} काही अडचण असल्यास आपण क्रॉप डॉक्टर वापरू शकतो.`,
-            `तुमच्या ${userCrop === 'crop' ? 'पिकाची' : userCrop + ' ची'} सध्याची स्थिती कशी आहे? पानांवर डाग असल्यास मला 'क्रॉप डॉक्टर उघड' असे सांगा.`
-        ];
-        const genericPa = [
-            `ਮੈਂ ਸੁਣ ਰਿਹਾ ਹਾਂ, ${systemMemory.name}। ਮੈਂ ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੇ ਰੋਗਾਂ ਅਤੇ ਖਾਦ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਅੱਜ ਕੀ ਸਮੱਸਿਆ ਹੈ?`,
-            `ਕਿਰਪਾ ਕਰਕੇ ਹੋਰ ਜਾਣਕਾਰੀ ਦਿਓ। ਜੇਕਰ ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਵਿੱਚ ਕੋਈ ਬਿਮਾਰੀ ਹੈ, ਤਾਂ ਮੈਨੂੰ 'ਕ੍ਰੌਪ ਡਾਕਟਰ' ਖੋਲ੍ਹਣ ਲਈ ਕਹੋ।`,
-            `ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੀ ਹੁਣ ਕੀ ਹਾਲਤ ਹੈ?`
-        ];
-        let arr = lang === 'en' ? genericEn : lang === 'mr' ? genericMr : lang === 'pa' ? genericPa : genericHi;
-        // Randomly rotate fallbacks based on history length so it doesn't repeat the exact same sentence!
-        let dice = systemMemory.history.length % 3;
-        intent.message = arr[dice] || arr[0];
+    else if (q.includes('water') || q.includes('pani') || q.includes('सिंचाई')) {
+        intent.message = KrishiKnowledgeDB[dbCropKey].water[lang];
+        return _finalizeAI(rawInput, intent, isContextual);
     }
-    
-    return _finalizeAI(promptText, intent, isContextual);
+
+    if(lang === 'en') intent.message = "I didn't completely understand that, but you can try using the Crop Doctor to scan for diseases, or tell me more about your crop issues.";
+    else if(lang === 'mr') intent.message = "मला थोडे क्लीअर नाही झाले, पण तुम्ही 'क्रॉप डॉक्टर' वापरून पानाचा फोटो पाठवू शकता, किंवा मला अधिक माहिती द्या.";
+    else if(lang === 'pa') intent.message = "ਮੈਨੂੰ ਥੋੜ੍ਹਾ ਸਮਝ ਨਹੀਂ ਆਇਆ, ਪਰ ਤੁਸੀਂ 'ਕ੍ਰੌਪ ਡਾਕਟਰ' ਦੀ ਵਰਤੋਂ ਕਰ ਸਕਦੇ ਹੋ, ਜਾਂ ਹੋਰ ਮਦਦ ਮੰਗੋ।";
+    else intent.message = "मुझे थोड़ा स्पष्ट नहीं हुआ, लेकिन आप 'क्रॉप डॉक्टर' का उपयोग करके तस्वीर ले सकते हैं, या अपनी समस्या के बारे में और जानकारी दें।";
+
+    return _finalizeAI(rawInput, intent, isContextual);
 }
 
 function _finalizeAI(promptText, intentObj, isContextual) {
@@ -933,36 +933,55 @@ function renderDoctor() {
                     }
                     console.log("ML5 MobileNet Predictions:", results);
                     
-                    // Check top 3 predictions for agricultural matches
+                    const score = results[0].confidence;
+                    const topGuess = results[0].label.toLowerCase().split(',')[0];
                     const classes = results.map(r => r.label.toLowerCase()).join(" ");
                     const plantKeywords = ['plant', 'leaf', 'tree', 'grass', 'flower', 'fruit', 'vegetable', 'crop', 'soil', 'pot', 'wood', 'agriculture', 'corn', 'pepper', 'apple', 'strawberry', 'tomato', 'cabbage', 'mushroom', 'produce', 'daisy', 'earth', 'ground'];
                     
                     const isPlantMatch = plantKeywords.some(kw => classes.includes(kw));
                     
-                    if (isPlantMatch) {
-                        // Phase 6 & 7: GPT-Style Contextual Reasoning Agent Simulation using Deep Offline DB
-                        let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[systemMemory.crops.length - 1] : "crop";
-                        let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
-                        const lang = systemMemory.language.startsWith('en') ? 'en' :
-                                     systemMemory.language.startsWith('mr') ? 'mr' :
-                                     systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
-                        
-                        let diagnosis = KrishiKnowledgeDB[dbCropKey].disease[lang];
-                        
-                        let displayMsg = `<i class='fa-solid fa-check-circle'></i> Agronomy Vision AI: Identified ${userCrop.toUpperCase()}.<br><span style="color:#ef4444; margin-top:8px; display:block; font-weight: 500;">${diagnosis}</span>`;
+                    const lang = systemMemory.language.startsWith('en') ? 'en' :
+                                 systemMemory.language.startsWith('mr') ? 'mr' :
+                                 systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
+
+                    // STEP 1: IMAGE VALIDATION (Blurry, Low Confidence, or Definitely Not a Plant)
+                    if (!isPlantMatch || score < 0.10 || (score > 0.4 && topGuess.match(/screen|wall|mouse|person|desk|fabric|monitor|keyboard|laptop|phone/))) {
+                        let errStr = "This image is not clear or it's not a leaf. Please send a clear photo of the leaf.";
+                        if(lang === 'mr') errStr = "हे चित्र क्लिअर नाही आहे किंवा पान नाही. कृपया पानाचा स्वच्छ फोटो पाठवा.";
+                        if(lang === 'pa') errStr = "ਇਹ ਫੋਟੋ ਸਾਫ ਨਹੀਂ ਹੈ, ਕਿਰਪਾ ਕਰਕੇ ਪੱਤੇ ਦੀ ਸਾਫ ਫੋਟੋ ਭੇਜੋ।";
+                        if(lang === 'hi') errStr = "तस्वीर स्पष्ट नहीं है या पत्ता नहीं है। कृपया पत्ते की फोटो भेजें।";
+
+                        document.getElementById('doctor-result').style.color = "#ef4444";
+                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-triangle-exclamation'></i> ${errStr}`;
+                        await speakText(errStr, systemMemory.language);
+                        return;
+                    }
+
+                    // STEP 2: AI RESPONSE CHECK (It is a plant, but certainty is low)
+                    if (isPlantMatch && score < 0.45) {
+                        let errStr = "I cannot identify it exactly, but it might be a disease. Try a Neem spray and upload a clearer photo.";
+                        if(lang === 'mr') errStr = "मी नक्की ओळखू शकत नाही, पण हा रोग असू शकतो. निम फवारणी करा आणि स्पष्ट फोटो पाठवा.";
+                        if(lang === 'pa') errStr = "ਮੈਂ ਪਛਾਣ ਨਹੀਂ ਸਕਦਾ, ਪਰ ਇਹ ਬਿਮਾਰੀ ਹੋ ਸਕਦੀ ਹੈ। ਨਿੰਮ ਸਪਰੇਅ ਕਰੋ ਅਤੇ ਸਾਫ ਫੋਟੋ ਭੇਜੋ।";
+                        if(lang === 'hi') errStr = "मैं ठीक से पहचान नहीं सकता, लेकिन यह बीमारी हो सकती है। नीम स्प्रे करें और साफ फोटो भेजें।";
 
                         document.getElementById('doctor-result').style.color = "var(--primary-dark)";
-                        document.getElementById('doctor-result').innerHTML = displayMsg;
-                        await speakText(diagnosis, systemMemory.language);
-                        
-                    } else {
-                        // AI Confirmed it's NOT a plant.
-                        const topGuess = results[0].label.split(',')[0]; // Tell user what AI actually saw!
-                        document.getElementById('doctor-result').style.color = "#ef4444"; // Red text
-                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-triangle-exclamation'></i> Real AI Detected a <b>${topGuess}</b>, not a crop. Please take a clear picture of the leaves.`;
-                        
-                        await speakText(getVoiceString('doctorNotPlant', topGuess), systemMemory.language);
+                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-circle-info'></i> ${errStr}`;
+                        await speakText(errStr, systemMemory.language);
+                        return;
                     }
+                    
+                    // STEP 3: EXACT MATCH (Highly confident Plant Identification -> Fetch Strict Deep Knowledge Diagnosis)
+                    // Phase 6 & 7: GPT-Style Contextual Reasoning Agent Simulation using Deep Offline DB
+                    let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[systemMemory.crops.length - 1] : "crop";
+                    let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
+                    
+                    let diagnosis = KrishiKnowledgeDB[dbCropKey].disease[lang];
+                    
+                    let displayMsg = `<i class='fa-solid fa-check-circle'></i> Agronomy Vision AI: Confirmed ${userCrop.toUpperCase()} Leaf (${(score*100).toFixed(0)}%).<br><span style="color:#ef4444; margin-top:8px; display:block; font-weight: 500;">${diagnosis}</span>`;
+
+                    document.getElementById('doctor-result').style.color = "var(--primary-dark)";
+                    document.getElementById('doctor-result').innerHTML = displayMsg;
+                    await speakText(diagnosis, systemMemory.language);
                 });
             };
         }

@@ -813,7 +813,15 @@ function renderChat() {
         appendMsg(text, true);
         const replyObj = await askAI(text, true);
         appendMsg(replyObj.message, false);
-        speakText(replyObj.message, systemMemory.language);
+        await speakText(replyObj.message, systemMemory.language);
+        
+        // Auto-resume listening to keep the conversation flowing naturally
+        if (replyObj.type === 'advice') {
+             setTimeout(() => {
+                 const micBtn = document.getElementById('chat-mic');
+                 if(micBtn && currentScreen === 'chat') micBtn.click();
+             }, 500);
+        }
         
         // Agent tasks inside continuous chat session
         if (replyObj.type === 'action' && replyObj.field === 'name') {
@@ -932,23 +940,20 @@ function renderDoctor() {
                     const isPlantMatch = plantKeywords.some(kw => classes.includes(kw));
                     
                     if (isPlantMatch) {
-                        // Phase 6 & 7: GPT-Style Contextual Reasoning Agent Simulation
+                        // Phase 6 & 7: GPT-Style Contextual Reasoning Agent Simulation using Deep Offline DB
                         let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[systemMemory.crops.length - 1] : "crop";
-                        const isEn = systemMemory.language.startsWith('en');
-                        const isMr = systemMemory.language.startsWith('mr');
-                        const isPa = systemMemory.language.startsWith('pa');
+                        let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
+                        const lang = systemMemory.language.startsWith('en') ? 'en' :
+                                     systemMemory.language.startsWith('mr') ? 'mr' :
+                                     systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
                         
-                        let displayMsg = `<i class='fa-solid fa-check-circle'></i> Agronomy Vision AI: Identified ${userCrop.toUpperCase()}.<br><span style="color:#ef4444; margin-top:8px; display:block;">Analysis: Early Blight (Fungal) spotted. Use Copper Fungicide today.</span>`;
+                        let diagnosis = KrishiKnowledgeDB[dbCropKey].disease[lang];
                         
-                        let spokenMsg = "";
-                        if(isEn) spokenMsg = `I have analyzed the leaf. Your ${userCrop} has early signs of fungal blight. I recommend applying copper fungicide before sunset.`;
-                        else if(isMr) spokenMsg = `मी पानाचे विश्लेषण केले आहे. तुमच्या ${userCrop === 'crop' ? 'पिकावर' : userCrop + ' वर'} करपा रोगाची लक्षणे दिसत आहेत. संध्याकाळपूर्वी बुरशीनाशक फवारा.`;
-                        else if(isPa) spokenMsg = `ਮੈਂ ਪੱਤੇ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਕੀਤਾ ਹੈ। ਤੁਹਾਡੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਵਿਚ ਉੱਲੀ ਦੀ ਬਿਮਾਰੀ ਹੈ। ਸ਼ਾਮ ਤੋਂ ਪਹਿਲਾਂ ਦਵਾਈ ਦਾ ਛਿੜਕਾਅ ਕਰੋ।`;
-                        else spokenMsg = `मैंने पत्ते का विश्लेषण किया है। आपकी ${userCrop === 'crop' ? 'फसल' : userCrop} में फंगल झुलसा रोग के शुरुआती लक्षण हैं। कृपया सूर्यास्त से पहले फफूंदनाशक का छिड़काव करें।`;
+                        let displayMsg = `<i class='fa-solid fa-check-circle'></i> Agronomy Vision AI: Identified ${userCrop.toUpperCase()}.<br><span style="color:#ef4444; margin-top:8px; display:block; font-weight: 500;">${diagnosis}</span>`;
 
                         document.getElementById('doctor-result').style.color = "var(--primary-dark)";
                         document.getElementById('doctor-result').innerHTML = displayMsg;
-                        await speakText(spokenMsg, systemMemory.language);
+                        await speakText(diagnosis, systemMemory.language);
                         
                     } else {
                         // AI Confirmed it's NOT a plant.
@@ -978,11 +983,27 @@ function renderMockFeature(typeId) {
         htmlContent = `<div class="list-item"><span>Pune Mandi - Tomato</span><span style="color:var(--primary); font-weight:800; font-size:1.2rem;">₹45/kg <i class="fa-solid fa-arrow-up"></i></span></div><div class="list-item"><span>Nashik Mandi - Onion</span><span style="color:var(--primary); font-weight:800; font-size:1.2rem;">₹22/kg <i class="fa-solid fa-arrow-up"></i></span></div><div class="list-item"><span>Mumbai - Wheat</span><span style="color:#ef4444; font-weight:800; font-size:1.2rem;">₹30/kg <i class="fa-solid fa-arrow-down"></i></span></div><button class="btn-primary" style="margin-top:24px; box-shadow:var(--shadow-floating);">Find Nearest Buyer</button>`;
     } else if (typeId === 'mock-comm') {
         title = "Farmer Community"; icon = "fa-users"; voicePrompt = getVoiceString('mockComm');
-        htmlContent = `<div class="list-item" style="flex-direction:column; align-items:flex-start; gap:8px;"><div style="font-weight:800; color:var(--text-main);">Ramesh K. (2km away)</div><p style="color:var(--text-muted); font-size:1.05rem;">Maza tomato la infection zala ahe, kay karu?</p><span style="font-weight:700; font-size:0.85rem; color:var(--primary);">12 Comments</span></div><div class="list-item" style="flex-direction:column; align-items:flex-start; gap:8px;"><div style="font-weight:800; color:#4f46e5;">Govt Scheme Alert: PM Kisan</div><p style="color:var(--text-muted); font-size:1.05rem;">Subsidised seeds available till Monday at local center.</p><span style="font-weight:700; font-size:0.85rem; color:var(--primary);">45 Likes</span></div>`;
+        htmlContent = `<div class="comm-msg" style="background:white; padding:16px; border-radius:16px; box-shadow:var(--shadow-sm); margin-bottom:12px; cursor:pointer;"><div style="font-weight:800; color:var(--text-main);">Ramesh K. (2km away)</div><p style="color:var(--text-muted); margin-top:8px; font-size:1.05rem;">Maza tomato la infection zala ahe, kay karu?</p><span style="font-weight:700; font-size:0.85rem; display:block; margin-top:12px; color:var(--primary);">12 Comments</span></div>
+        <div class="comm-msg" style="background:white; padding:16px; border-radius:16px; box-shadow:var(--shadow-sm); margin-bottom:12px; cursor:pointer;"><div style="font-weight:800; color:#4f46e5;">Govt Scheme Alert: PM Kisan</div><p style="color:var(--text-muted); margin-top:8px; font-size:1.05rem;">Subsidised seeds available till Monday at local center.</p><span style="font-weight:700; margin-top:12px; display:block; font-size:0.85rem; color:var(--primary);">45 Likes</span></div>`;
     }
     appContainer.innerHTML = `<div class="screen"><div class="view-header" style="margin: -24px -24px 24px -24px;"><i class="fa-solid fa-arrow-left" id="back-mock" style="font-size: 1.2rem; cursor:pointer;"></i><h3 style="flex:1; text-align:center;">${title}</h3><i class="fa-solid ${icon}" style="color: var(--primary);"></i></div><div class="mock-dashboard">${htmlContent}</div></div>${getBottomNavHTML('none')}`;
     attachNavListeners(); document.getElementById('back-mock').onclick = () => { currentScreen = 'home'; renderUI(); };
     setTimeout(() => speakText(voicePrompt, systemMemory.language), 400);
+
+    if (typeId === 'mock-comm') {
+        document.querySelectorAll('.comm-msg').forEach(msg => {
+            msg.onclick = () => {
+                const lang = systemMemory.language;
+                let joinMsg = "Please join the community to talk.";
+                if(lang.startsWith('hi')) joinMsg = "बातचीत करने के लिए कृपया कम्युनिटी में शामिल हों।";
+                if(lang.startsWith('mr')) joinMsg = "संवाद साधण्यासाठी कृपया कम्युनिटी जॉईन करा.";
+                if(lang.startsWith('pa')) joinMsg = "ਗੱਲਬਾਤ ਕਰਨ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਕਮਿਊਨਿਟੀ ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ।";
+                
+                alert("Please Join Community / कम्युनिटी जॉईन करा");
+                speakText(joinMsg, systemMemory.language);
+            };
+        });
+    }
 }
 
 // ------------------------------------------------------------------

@@ -351,29 +351,20 @@ async function askAI(promptText, isContextual = false) {
     }
 
     // 5. DEEP AGRONOMY KNOWLEDGE BASE (Multi-Sentence Expert Advice)
-    if (q.includes('yellow') || q.includes('pivla') || q.includes('पीले') || q.includes('peele')) {
-        if(lang === 'en') intent.message = `Yellowing leaves in ${userCrop} usually indicates Nitrogen deficiency or overwatering. Check the soil moisture first. If it's too wet, stop watering. Otherwise, apply a Nitrogen-rich fertilizer.`;
-        else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'पिकाची' : userCrop + ' ची'} पाने पिवळी पडणे हे नत्र (Nitrogen) ची कमतरता किंवा जास्त पाण्यामुळे असू शकते. जमिनीत ओलावा तपासा. गरज असेल तरच नत्रयुक्त खत द्या.`;
-        else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੇ ਪੱਤੇ ਪੀਲੇ ਹੋਣ ਦਾ ਮਤਲਬ ਨਾਈਟ੍ਰੋਜਨ ਦੀ ਕਮੀ ਜਾਂ ਜ਼ਿਆਦਾ ਪਾਣੀ ਹੋ ਸਕਦਾ ਹੈ। ਖੇਤ ਵਿੱਚ ਪਾਣੀ ਚੈੱਕ ਕਰੋ ਅਤੇ ਯੂਰੀਆ ਪਾਓ।`;
-        else intent.message = `${userCrop === 'crop' ? 'फसल' : userCrop} के पत्ते पीले होने का कारण नाइट्रोजन की कमी या अधिक पानी हो सकता है। मिट्टी की नमी जांचें और जरूरत पड़ने पर नाइट्रोजन युक्त खाद डालें।`;
+    // 5. DEEP AGRONOMY KNOWLEDGE BASE (Offline Database Lookup)
+    let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
+
+    if (q.includes('disease') || q.includes('rog') || q.includes('रोग') || q.includes('yellow') || q.includes('pivla') || q.includes('पीले') || q.includes('spot')) {
+        intent.message = KrishiKnowledgeDB[dbCropKey].disease[lang];
     } 
-    else if (q.includes('fertilizer') || q.includes('khat') || q.includes('khad') || q.includes('खाद') || q.includes('ਖਾਦ') || q.includes('urea')) {
-        if(lang === 'en') intent.message = `For optimal growth of ${userCrop}, using an NPK mix like 19:19:19 is highly recommended during the vegetative stage. Do you want to know the exact dosage?`;
-        else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'पिकाच्या' : userCrop + ' च्या'} चांगल्या वाढीसाठी 19:19:19 सारखे NPK खत वापरणे उत्तम आहे. तुम्हाला याचे अचूक प्रमाण जाणून घ्यायचे आहे का?`;
-        else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} ਦੇ ਵਾਧੇ ਲਈ NPK 19:19:19 ਖਾਦ ਬਹੁਤ ਵਧੀਆ ਹੈ। ਕੀ ਤੁਸੀਂ ਇਸਦੀ ਮਾਤਰਾ ਜਾਣਨਾ ਚਾਹੁੰਦੇ ਹੋ?`;
-        else intent.message = `${userCrop === 'crop' ? 'फसल' : userCrop} के अच्छे विकास के लिए NPK 19:19:19 खाद का उपयोग बहुत फायदेमंद होता है। क्या आप इसका सही मात्रा जानना चाहते हैं?`;
+    else if (q.includes('fertilizer') || q.includes('khat') || q.includes('khad') || q.includes('खाद') || q.includes('ਖਾਦ') || q.includes('urea') || q.includes('npk')) {
+        intent.message = KrishiKnowledgeDB[dbCropKey].fertilizer[lang];
     }
-    else if (q.includes('rain') || q.includes('weather') || q.includes('paus') || q.includes('पाऊस') || q.includes('बारिश') || q.includes('ਮੀਂਹ')) {
-        if(lang === 'en') intent.message = `Meteorological data indicates strong thunderstorms expected in your region around 4 PM today. It is critical that you delay any pesticide spraying on your ${userCrop} until tomorrow to avoid runoff.`;
-        else if(lang === 'mr') intent.message = `हवामान अंदाजानुसार आज दुपारी ४ वाजता तुमच्या भागात वादळी पाऊस येऊ शकतो. कृपया ${userCrop === 'crop' ? 'पिकावर' : userCrop + ' वर'} कोणतीही फवारणी उद्यापर्यंत पुढे ढकला.`;
-        else if(lang === 'pa') intent.message = `ਮੌਸਮ ਵਿਭਾਗ ਮੁਤਾਬਕ ਅੱਜ ਸ਼ਾਮ ਭਾਰੀ ਮੀਂਹ ਪੈ ਸਕਦਾ ਹੈ। ਆਪਣੀ ${userCrop === 'crop' ? 'ਫਸਲ' : userCrop} 'ਤੇ ਕੋਈ ਵੀ ਸਪਰੇਅ ਕੱਲ੍ਹ ਤੱਕ ਨਾ ਕਰੋ।`;
-        else intent.message = `मौसम विभाग के अनुसार आज शाम 4 बजे भारी बारिश की संभावना है। कृपया अपनी ${userCrop === 'crop' ? 'फसल' : userCrop} पर किसी भी कीटनाशक का छिड़काव कल तक के लिए टाल दें।`;
+    else if (q.includes('water') || q.includes('rain') || q.includes('paus') || q.includes('पाऊस') || q.includes('pani') || q.includes('सिंचाई') || q.includes('बारिश')) {
+        intent.message = KrishiKnowledgeDB[dbCropKey].water[lang];
     } 
-    else if (q.includes('seed') || q.includes('biyane') || q.includes('beej') || q.includes('बीज') || q.includes('ਬੀਜ')) {
-        if(lang === 'en') intent.message = `Before sowing ${userCrop} seeds, treat them with Thiram or Captan at 2g per Kg. This prevents soil-borne fungal diseases and greatly improves germination rates.`;
-        else if(lang === 'mr') intent.message = `${userCrop === 'crop' ? 'बियाणे' : userCrop + ' बियाणे'} पेरण्यापूर्वी त्यांना प्रति किलो २ ग्रॅम थायरम चोळा. यामुळे जमिनीतील बुरशीजन्य आजार टळतात आणि उगवण चांगली होते.`;
-        else if(lang === 'pa') intent.message = `${userCrop === 'crop' ? 'ਬੀਜ' : userCrop} ਬੀਜਣ ਤੋਂ ਪਹਿਲਾਂ ਦਵਾਈ (Thiram) ਲਗਾਓ। ਇਸ ਨਾਲ ਉੱਲੀ ਤੋਂ ਬਚਾਅ ਹੁੰਦਾ ਹੈ ਅਤੇ ਫਸਲ ਵਧੀਆ ਉੱਗਦੀ ਹੈ।`;
-        else intent.message = `${userCrop === 'crop' ? 'बीज' : userCrop} बुवाई से पहले बीजों को 2 ग्राम थीरम प्रति किलो से उपचारित करें। इससे जड़ गलन रोग नहीं होता और अंकुरण बढ़ता है।`;
+    else if (q.includes('seed') || q.includes('biyane') || q.includes('beej') || q.includes('बीज') || q.includes('ਬੀਜ') || q.includes('sow')) {
+        intent.message = KrishiKnowledgeDB[dbCropKey].seed[lang];
     }
     else {
         // Fallback Conversation Array for extreme variety

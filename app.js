@@ -11,6 +11,10 @@ let systemMemory = JSON.parse(localStorage.getItem('krishimitra_memory')) || {
     doctorTestCount: 0 // Alternates the "Not a Crop" logic
 };
 
+// Patch: Ensure array properties exist for legacy stored memories
+if (!systemMemory.crops) systemMemory.crops = [];
+if (!systemMemory.history) systemMemory.history = [];
+
 const langMap = {
     'hi': { label: 'हिंदी', code: 'hi-IN', confirm: 'आपने हिंदी चुनी है।' },
     'en': { label: 'English', code: 'en-IN', confirm: 'You have selected English.' },

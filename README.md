@@ -15,27 +15,29 @@ It is a **Voice-Operated, Offline-Resilient, Zero-Typing AI Companion**. The use
 ## 🚀 Deep Technical Feature Breakdown (The "WOW" Factor)
 
 ### 1. "Ask KrishiMitra" Master AI Controller (Zero-Tap Navigation)
-* **The Concept:** A farmer presses a single hardware-agnostic microphone button on the home screen and speaks naturally (e.g., *"Mere fasal me daag hai"* / *"My crop has spots"*).
-* **The Technical Execution:** Instead of relying on expensive, paid APIs like ChatGPT which fail without internet, we built a **Hybrid NLP Intent Engine directly inside the JavaScript bundle**. It parses phonetic variations, multi-lingual phrases (Hindi, Marathi, Punjabi, English), and fuzzy-matches them against a local dictionary to calculate a confidence score.
-* **The Result:** The AI intelligently converts the intent into a direct UI Navigation command, jumping the user instantly to the correct page without them ever touching a menu.
+* **The Concept:** A universal voice assistant that understands intent and navigates the app for the illiterate user.
+* **How to Interact:** Tap the glowing microphone button floating at the bottom of the screen. Speak naturally in your selected native language (e.g., *"Mere fasal me daag hai"* / *"My crop has spots"*, or *"Yojana batao"*).
+* **How It Works (Under the Hood):** Instead of relying on expensive, paid APIs like ChatGPT which fail without internet, we built a **Hybrid NLP Intent Engine directly inside the JavaScript bundle**. It parses phonetic variations, multi-lingual phrases (Hindi, Marathi, Punjabi, English), and fuzzy-matches them against a local dictionary to calculate a confidence score. The system then automatically triggers a visual UI redirect on behalf of the user.
 
 ### 2. Context-Aware "Crop Doctor" (Edge Vision AI)
-* **The Concept:** A farmer takes a photo of a diseased leaf and gets an instant medical diagnosis and treatment plan.
-* **The Technical Execution:** We compiled **ML5.js (TensorFlow.js MobileNet)** to run 100% on the client's device (Edge AI). No images are ever uploaded to a server, ensuring 0ms latency after the initial load. 
-* **Smart Conversational Follow-up:** KrishiMitra doesn't just give a static answer, it maintains a *Conversational State Machine*. Once a disease is identified, the AI voices a follow-up: *"How many days has this problem been here?"* If the farmer replies "2 days", the AI prescribes a light Neem spray. If they reply "10 days", it warns of severe infection and triggers a localized Krishi Kendra alert.
+* **The Concept:** An instant, offline medical diagnosis and treatment plan for diseased crops seamlessly integrated with conversational follow-ups.
+* **How to Interact:** Navigate to Crop Doctor (or just ask the mic for it). Tap "Snap Photo" to use your camera. Once the AI identifies the disease, it will verbally ask you: *"Aapko ye problem kitne din se hai?"* (How many days has this problem been here?). Tap the mic and reply with a number (e.g., *"2 din se"*).
+* **How It Works (Under the Hood):** We compiled **ML5.js (TensorFlow.js MobileNet)** to run 100% on the client's device (Edge AI). No images are ever uploaded to a server, ensuring 0ms latency. Furthermore, KrishiMitra maintains a *Conversational State Machine*. If the farmer replies "2 days", the logic prescribes a light Neem spray. If they reply "10 days", it warns of severe infection and triggers a Krishi Kendra alert.
 
 ### 3. "Ghost" Form Filler: VIP Auto-Apply for Govt Schemes
-* **The Concept:** Government schemes provide thousands of rupees in subsidies, but illiterate farmers cannot fill out the digital paperwork.
-* **The Technical Execution:** We orchestrated an automated DOM-manipulation sequence ("Ghost Typing"). When a farmer says *"Apply for PM Kisan"*, the system automatically opens the form, pulls registered data (Land Size, Region, Crop Type) from `localStorage`, visually types it into the UI on their behalf, calculates the complex eligibility math, and renders a massive, accessible Success screen while reading the financial benefit out loud.
+* **The Concept:** Government schemes provide thousands of rupees in subsidies, but illiterate farmers cannot fill out the digital paperwork. We automate this.
+* **How to Interact:** Navigate to the Govt Schemes page (or ask the mic to apply for a scheme like *"PM Kisan apply"*). The AI will ask for confirmation. Say *"Haan"* (Yes). Sit back and watch the AI type on the screen for you.
+* **How It Works (Under the Hood):** We orchestrated an automated DOM-manipulation sequence ("Ghost Typing"). The system pulls registered data (Land Size, Region, Crop Type) from local `systemMemory`, visually types it into the UI on the farmer's behalf line-by-line, calculates the complex eligibility math, and renders a massive, accessible Success screen while reading the financial benefit out loud.
 
-### 4. Zero-Internet Resiliency Engine (Real India Problem)
-* **The Concept:** When a farmer walks deep into their fields, they often lose all network bars. The app must not "crash" or show a white screen.
-* **The Technical Execution:** KrishiMitra actively hooks into the `navigator.onLine` API. If a farmer asks a question while completely disconnected from the grid, the NLP Engine intercepts the failure state and dynamically falls back to a massive pre-loaded local knowledge base.
-* **Example:** *"Aapka Internet abhi band hai. Par main offline hoon. Aap fasal pe Neem spray use karein..."* (Your internet is disconnected, but my AI is awake. Use Neem spray).
+### 4. Zero-Internet Resiliency (Real India Problem)
+* **The Concept:** The app must not "crash" or show a white page when network towers fail deep in the fields.
+* **How to Interact:** Turn off your Wi-Fi/Mobile Data. Tap the mic and ask for general help. 
+* **How It Works (Under the Hood):** KrishiMitra actively hooks into the `navigator.onLine` browser API. If a farmer asks a question while disconnected from the grid, the NLP Engine intercepts the failure state and dynamically falls back to a massive pre-loaded local knowledge base, delivering immediate offline remedies like watering schedules or organic pesticide mixtures.
 
 ### 5. Semantic Voice Personality & Cultural Honorifics
-* **The Concept:** AI should sound like a human friend, not a robotic terminal.
-* **The Technical Execution:** We tapped directly into the native Web SpeechSynthesis API, manipulating specific `pitch=1.1` and `rate=0.9` audio frequency bands to generate warmer tonal deliveries. Furthermore, user profiling stores custom gender markers to dynamically inject localized cultural honorifics (`Bhaiya`, `Didi`, `Bhau`, `Tai`) into the synthesized speech, establishing immense psychological trust with the rural user.
+* **The Concept:** The Voice AI must build psychological trust by sounding like a respectful local companion, not a robotic terminal.
+* **How to Interact:** Select your gender and language during the onboarding screen. The AI will automatically refer to you respectfully during conversations.
+* **How It Works (Under the Hood):** We tapped directly into the native Web SpeechSynthesis API, manipulating specific `pitch=1.1` and `rate=0.9` audio frequency bands to generate warmer tonal deliveries. User profiling dynamically maps local cultural honorifics (`Bhaiya`, `Didi`, `Bhau`, `Tai`, `Bhaji`) into the synthesized speech output based on local custom arrays.
 
 ---
 
@@ -47,15 +49,21 @@ It is a **Voice-Operated, Offline-Resilient, Zero-Typing AI Companion**. The use
 | **Hybrid Intent Engine** | `Fully OFF-GRID` | Custom RegEx/Fuzzy NLP parser executes entirely in local JS loop. |
 | **Smart AI Follow-Ups** | `Fully OFF-GRID` | `localStorage` state management controls follow-up logic natively. |
 | **Voice-to-Text (STT)** | `Requires 3G/4G` | Temporarily relies on Web Speech API mapping to Google Voice servers to ensure perfect regional dialect transcriptions. |
-| **Text-to-Speech (TTS)** | `Conditional` | Top-quality Neural voices require internet; however, native baseline robotic OS voices trigger offline via the SpeechSynthesis API. |
 | **Live Mandi / Weather** | `Requires 3G/4G` | Real-time pricing inherently requires pinging a live remote dataset in production. |
+
+---
+
+## 🔮 Future Scope (100% Offline Expansion)
+While our Engine and UI are already decoupled from cloud reliance, our next immediate roadmap objective is to push **extensive, localized datasets for all features directly onto the device firmware**.
+* **Offline STT Models:** Integrating compiled `Whisper.cpp` or Mozilla DeepSpeech WASM models directly into the browser cache. This will allow the Voice-to-Text inference to run locally, severing the final tether to 4G connectivity.
+* **Offline Mandi/Weather Caching:** Pre-fetching massive 7-day cyclical agro-economic data packets during brief moments of connectivity (e.g. when the farmer is near a town cell tower) so the Sell Smart and Weather features function smoothly and 100% offline when the farmer returns deep into the fields.
 
 ---
 
 ## 🛠️ Stack & Innovation Summary
 * **Frontend:** Fully responsive HTML5/CSS3 with Glassmorphism and hardware-accelerated micro-animations.
-* **Logic / AI Tier:** ES6 Vanilla JavaScript utilizing local arrays, ML5.js Computer Vision, and Web Speech bindings.
-* **Cloud Costs:** **$0.00** – 100% Client-Side execution means zero scalable server costs for AI inference, making this infinitely deployable at scale to millions of Indian farmers.
+* **Logic / AI Tier:** ES6 Vanilla JavaScript utilizing local arrays, ML5.js Computer Vision, and Web Speech API bindings.
+* **Cloud Costs:** **$0.00** – Client-Side execution means zero scalable server costs for AI inference, making this infinitely deployable at scale to millions of Indian farmers.
 
 ## 🏃🏽‍♂️ How to Run the Demo locally
 

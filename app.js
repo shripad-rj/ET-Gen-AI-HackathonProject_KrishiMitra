@@ -367,6 +367,33 @@ function detectIntent(input) {
   return { intent: bestIntent, score: bestScore };
 }
 
+// Global UI Navigation Helpers for Phase 2
+function highlightCard(cardId) {
+    const el = document.getElementById(cardId);
+    if (el) {
+        el.style.transition = 'all 0.4s ease';
+        el.style.border = "3px solid #22c55e";
+        el.style.boxShadow = "0 0 0 8px rgba(34, 197, 94, 0.3)";
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        
+        setTimeout(() => {
+            el.style.border = "";
+            el.style.boxShadow = "";
+        }, 4000); // 4 seconds highlight
+    }
+}
+
+function navigateTo(cardId) {
+    // Optionally trigger highlight locally first before navigating
+    highlightCard(cardId);
+    const el = document.getElementById(cardId);
+    if (el) {
+        setTimeout(() => {
+            el.click(); // simulate user tap
+        }, 800);
+    }
+}
+
 // Ultra-Advanced Offline GPT Agent Simulation (Intent, Navigation, Action, Memory)
 async function askAI(promptText, isContextual = false) {
     if(!systemMemory.crops) systemMemory.crops = []; 
@@ -431,45 +458,49 @@ async function askAI(promptText, isContextual = false) {
         }
     }
 
-    // STEP 3: DECISION ENGINE
+    // STEP 3: DECISION ENGINE (PHASE 2 CONTROL LAYER)
+    const NAV_MAP = {
+        sell_smart: "nav-sell",
+        weather: "nav-weather",
+        profit_checker: "nav-profit",
+        crop_doctor: "nav-doctor",
+        schemes: "nav-comm"
+    };
+    const ACTIVE_FEATURES = ["crop_doctor", "schemes", "profile", "chat"];
+
     if (matchedTarget) {
-        intent.type = "navigation"; 
+        let cardId = NAV_MAP[matchedTarget];
         
-        if (matchedTarget === 'sell_smart') {
-            intent.target = "nav-sell";
-            if(lang === 'en') intent.message = suggestionPrefix + "You want to check market prices. Taking you to the Sell Smart Mandi tracker.";
-            else if(lang === 'mr') intent.message = suggestionPrefix + "तुम्हाला बाजारभाव पाहायचे आहेत. 'Sell Smart' मंडी ट्रॅकर उघडत आहे.";
-            else if(lang === 'pa') intent.message = suggestionPrefix + "ਤੁਸੀਂ ਮੰਡੀ ਦਾ ਰੇਟ ਦੇਖਣਾ ਚਾਹੁੰਦੇ ਹੋ। 'Sell Smart' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = suggestionPrefix + "आप मंडी के भाव देखना चाहते हैं। 'Sell Smart' मंडी ट्रैकर खोल रहा हूँ।";
+        if (intentRes.score >= 0.75) {
+            // HIGH SCORE -> Navigate or Highlight
+            if (ACTIVE_FEATURES.includes(matchedTarget)) {
+                intent.type = "navigate";
+                intent.target = cardId;
+                
+                if(lang === 'en') intent.message = `Opening ${matchedTarget.replace('_', ' ')}`;
+                else if(lang === 'mr') intent.message = `${matchedTarget} उघडत आहे`;
+                else if(lang === 'pa') intent.message = `${matchedTarget} ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ`;
+                else intent.message = `${matchedTarget} खोल रहा हूँ`;
+            } else {
+                intent.type = "highlight";
+                intent.target = cardId;
+                
+                if(lang === 'en') intent.message = "This feature is available right here.";
+                else if(lang === 'mr') intent.message = "हे वैशिष्ट्य येथे उपलब्ध आहे.";
+                else if(lang === 'pa') intent.message = "ਇਹ ਵਿਸ਼ੇਸ਼ਤਾ ਇੱਥੇ ਉਪਲਬਧ ਹੈ।";
+                else intent.message = "यह फीचर यहाँ उपलब्ध है।";
+            }
+        } else if (intentRes.score >= 0.5) {
+            // MEDIUM SCORE -> Highlight + Suggest
+            intent.type = "highlight";
+            intent.target = cardId;
+            
+            if(lang === 'en') intent.message = "You can try this feature.";
+            else if(lang === 'mr') intent.message = "तुम्ही हे वापरून पाहू शकता.";
+            else if(lang === 'pa') intent.message = "ਤੁਸੀਂ ਇਹ ਅਜ਼ਮਾ ਸਕਦੇ ਹੋ।";
+            else intent.message = "आप यह ट्राई कर सकते हैं।";
         }
-        else if (matchedTarget === 'weather') {
-            intent.target = "nav-weather";
-            if(lang === 'en') intent.message = suggestionPrefix + "You asked about the weather. Opening the Weather & Rain Forecast.";
-            else if(lang === 'mr') intent.message = suggestionPrefix + "तुम्हाला हवामान आणि पावसाचा अंदाज हवा आहे. हवामान अ‍ॅलर्ट उघडत आहे.";
-            else if(lang === 'pa') intent.message = suggestionPrefix + "ਮੌਸਮ ਅਤੇ ਮੀਂਹ ਬਾਰੇ ਜਾਣਕਾਰੀ ਲਈ ਮੌਸਮ ਅਲਰਟ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = suggestionPrefix + "आप मौसम की जानकारी चाहते हैं। मौसम और बारिश का अलर्ट खोल रहा हूँ।";
-        }
-        else if (matchedTarget === 'profit_checker') {
-            intent.target = "nav-profit";
-            if(lang === 'en') intent.message = suggestionPrefix + "You want to estimate profit. Opening the Profit Checker.";
-            else if(lang === 'mr') intent.message = suggestionPrefix + "नफा बघायचा आहे ना? नफा तपासक उघडत आहे.";
-            else if(lang === 'pa') intent.message = suggestionPrefix + "ਮੁਨਾਫਾ ਚੈੱਕ ਕਰਨਾ ਹੈ? 'Profit Checker' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = suggestionPrefix + "मुनाफे का अनुमान लगाना चाहते हैं? प्रॉफिट चेकर खोल रहा हूँ।";
-        }
-        else if (matchedTarget === 'schemes') {
-            intent.target = "nav-comm"; 
-            if(lang === 'en') intent.message = suggestionPrefix + "Looking for government schemes? Opening the Community board.";
-            else if(lang === 'mr') intent.message = suggestionPrefix + "तुम्हाला सरकारी योजनांची माहिती हवी आहे का? आमची कम्युनिटी उघडत आहे.";
-            else if(lang === 'pa') intent.message = suggestionPrefix + "ਸਰਕਾਰੀ ਸਕੀਮਾਂ ਦੀ ਜਾਣਕਾਰੀ ਲਈ 'Community' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = suggestionPrefix + "आपको सरकारी योजनाओं की जानकारी चाहिए? कम्युनिटी बोर्ड खोल रहा हूँ।";
-        }
-        else if (matchedTarget === 'crop_doctor') {
-            intent.target = "nav-doctor";
-            if(lang === 'en') intent.message = suggestionPrefix + "It sounds like a plant disease. Opening Crop Doctor, please upload a photo.";
-            else if(lang === 'mr') intent.message = suggestionPrefix + "पिकावर रोग दिसतोय. क्रॉप डॉक्टर उघडत आहे, कृपया पानाचा फोटो घ्या.";
-            else if(lang === 'pa') intent.message = suggestionPrefix + "ਰੋਗ ਲੱਗਦਾ ਹੈ। ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ, ਫੋਟੋ ਲਓ।";
-            else intent.message = suggestionPrefix + "ऐसा लगता है कि फसल में कोई बीमारी है। क्रॉप डॉक्टर खोल रहा हूँ, कृपया फोटो अपलोड करें।";
-        }
+        
         return _finalizeAI(rawInput, intent, isContextual);
     }
 
@@ -900,18 +931,10 @@ function renderHome() {
                 systemMemory.name = replyObj.value;
                 saveMemory();
                 renderUI(); // Refresh header
-            } else if (replyObj.type === 'navigation' && replyObj.target) {
-                const targetEl = document.getElementById(replyObj.target);
-                if (targetEl) {
-                    targetEl.style.transition = 'all 0.5s ease';
-                    targetEl.style.boxShadow = '0 0 0 6px var(--primary)';
-                    targetEl.style.transform = 'scale(1.05)';
-                    
-                    // Physically click and navigate the UI on behalf of the user after voice finishes!
-                    setTimeout(() => {
-                        targetEl.click();
-                    }, 4500);
-                }
+            } else if (replyObj.type === 'navigate' && replyObj.target) {
+                navigateTo(replyObj.target);
+            } else if (replyObj.type === 'highlight' && replyObj.target) {
+                highlightCard(replyObj.target);
             }
         } catch(err) {
             mic.classList.remove('active');

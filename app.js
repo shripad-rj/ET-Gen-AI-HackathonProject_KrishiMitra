@@ -899,7 +899,6 @@ function renderHome() {
         isRecordingToggle = true;
         
         try {
-            await new Promise(r => setTimeout(r, 400));
             const userQuestion = await new Promise((resolve, reject) => {
                 if (!SpeechRecognition) return reject('Not supported');
                 
@@ -920,7 +919,14 @@ function renderHome() {
                 };
                 recognition.onerror = (e) => reject(e.error);
                 recognition.onend = () => resolve((finalTrans + tempTrans).trim());
-                recognition.start();
+                
+                setTimeout(() => {
+                    if (isRecordingToggle) {
+                        try { recognition.start(); } catch(e) { reject(e); }
+                    } else {
+                        resolve('');
+                    }
+                }, 200); // reduced delay to prevent missed fast-speech
             });
             
             mic.classList.remove('active');

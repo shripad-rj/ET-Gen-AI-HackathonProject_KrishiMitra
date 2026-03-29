@@ -128,10 +128,23 @@ function getVoiceString(key, val="") {
 }
 
 function getWelcomeMessage(langCode) {
-    if (langCode.startsWith('en')) return "Hello! How's your farm doing today?";
-    if (langCode.startsWith('mr')) return "Kasa ahes bhau! Kay mhantay shet?";
-    if (langCode.startsWith('pa')) return "Ki haal hai veer! Khet da ki haal aa?";
-    return "Kaise ho bhaiya! Ka keh raha hai khet?"; // Default Hindi
+    const isFemale = systemMemory.gender === 'Female';
+    
+    if (langCode.startsWith('en')) {
+        const title = isFemale ? 'sister' : 'brother';
+        return `Hello ${title}! How is your farm doing today?`;
+    }
+    if (langCode.startsWith('mr')) {
+        const title = isFemale ? 'tai' : 'bhau';
+        return `Namaskar ${title}! Kay mhantay shet?`;
+    }
+    if (langCode.startsWith('pa')) {
+        const title = isFemale ? 'bhain' : 'veer';
+        return `Sat Sri Akal ${title}! Khet da ki haal aa?`;
+    }
+    // Default Hindi
+    const title = isFemale ? 'behen' : 'bhaiya';
+    return `Namaste ${title}! Khet kya keh raha hai?`; 
 }
 const appContainer = document.getElementById('app-container');
 let currentScreen = 'boot'; // Hidden bootloader to unlock Chrome AutoPlay
@@ -155,13 +168,19 @@ async function speakText(text, langCode = systemMemory.language) {
     // Aggressively bind the correct native voice (prevents English voice from muting native scripts)
     let voices = synthesis.getVoices();
     let prefix = langCode.split('-')[0];
-    let voice = voices.find(v => v.lang === langCode) || voices.find(v => v.lang.startsWith(prefix));
-    if (voice) {
-        utterance.voice = voice;
+    
+    // Prefer higher quality Google / Microsoft Natural voices if available to improve speech clarity
+    let bestVoice = voices.find(v => v.lang.startsWith(prefix) && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Online')));
+    if (!bestVoice) bestVoice = voices.find(v => v.lang === langCode) || voices.find(v => v.lang.startsWith(prefix));
+    
+    if (bestVoice) {
+        utterance.voice = bestVoice;
     }
 
     utterance.volume = 1;
-    utterance.rate = 0.95; 
+    utterance.rate = 0.85; // Lowered rate significantly to improve clarity on heavy Indian accents 
+    utterance.pitch = 1.0; 
+    
     activeUtterance = utterance; // GC fix
     synthesis.speak(utterance);
     
@@ -270,6 +289,84 @@ function listenVoice(langCode = systemMemory.language) {
     });
 }
 
+// --- NLP Core Intent Engine ---
+const CORE_DICT = {
+  sell_smart: {
+    keywords: ["mandi", "bhav", "price", "rate", "bazaar", "vikri", "market", "मंडी", "भाव", "बाजार", "बाज़ार", "विक्री", "मं‍डी", "दर", "ਮੰਡੀ", "ਕੀਮਤ", "ਭਾਅ"],
+    phrases: ["mandi bhav", "market rate", "bazaar bhav", "kiti bhav aahe", "price kya hai", "मंडी भाव", "बाजार भाव", "मंडी दर", "बाजार दर", "ਮੰਡੀ ਭਾਅ"]
+  },
+  weather: {
+    keywords: ["weather", "rain", "paus", "mausam", "मौसम", "पाऊस", "बारिश", "हवामान", "ਮੌਸਮ", "ਮੀਂਹ"],
+    phrases: ["kal paus aahe ka", "barish hogi kya", "weather update", "आज मौसम कैसा है", "बारिश होगी", "पाऊस पडणार", "ਮੀਂਹ ਪਵੇਗਾ"]
+  },
+  profit_checker: {
+    keywords: ["profit", "loss", "fayda", "nuksaan", "फ़ायदा", "नुक़सान", "फायदा", "नुकसान", "तोटा", "किंमत", "ਨੁਕਸਾਨ", "ਮੁਨਾਫਾ", "लाभ", "मुनाफ़ा", "मुनाफा"],
+    phrases: ["profit kasa baghu", "kitna fayda", "loss calculate", "कितना फायदा", "फायदा कसा बघू", "नुकसान किती", "ਕਿੰਨਾ ਮੁਨਾਫਾ"]
+  },
+  crop_doctor: {
+    keywords: ["disease", "daag", "spot", "rog", "keede", "रोग", "कीड़े", "कीड", "किडा", "दाग", "ਰੋਗ", "ਕੀੜੇ"],
+    phrases: ["plant problem", "paan var daag", "leaf disease", "पत्तों पर दाग", "पानावर डाग", "बीमारी लग गई", "پودے کی بیماری", "ਪੱਤਿਆਂ 'ਤੇ ਦਾਗ"]
+  },
+  schemes: {
+    keywords: ["yojana", "scheme", "subsidy", "government", "योजना", "सब्सिडी", "सरकारी", "ਸਕੀਮ", "ਸਬਸਿਡੀ"],
+    phrases: ["sarkari madat", "farmer scheme", "yojana sang", "सरकारी योजना", "सरकारी मदत", "ਕਿਸਾਨ ਸਕੀਮ"]
+  }
+};
+
+function matchKeywords(input, keywords) {
+  let count = 0;
+  keywords.forEach(word => {
+    if (input.includes(word)) count++;
+  });
+  return count > 0 ? 1.0 : 0.0;
+}
+
+function matchPhrases(input, phrases) {
+  let score = 0;
+  phrases.forEach(phrase => {
+    if (input.includes(phrase)) score = 1.0;
+  });
+  return score;
+}
+
+function fuzzyMatch(input, keywords) {
+  let score = 0;
+  keywords.forEach(word => {
+    if (input.includes(word) || input.startsWith(word.slice(0, 3))) {
+      score = 1.0;
+    }
+  });
+  return score;
+}
+
+function getIntentScore(input, intentData) {
+  const keywordScore = matchKeywords(input, intentData.keywords);
+  const phraseScore = matchPhrases(input, intentData.phrases);
+  const fuzzyScore = fuzzyMatch(input, intentData.keywords);
+
+  return (
+    keywordScore * 0.5 +
+    phraseScore * 0.3 +
+    fuzzyScore * 0.2
+  );
+}
+
+function detectIntent(input) {
+  input = input.toLowerCase();
+  let bestIntent = null;
+  let bestScore = 0;
+
+  for (let intent in CORE_DICT) {
+    const score = getIntentScore(input, CORE_DICT[intent]);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIntent = intent;
+    }
+  }
+
+  return { intent: bestIntent, score: bestScore };
+}
+
 // Ultra-Advanced Offline GPT Agent Simulation (Intent, Navigation, Action, Memory)
 async function askAI(promptText, isContextual = false) {
     if(!systemMemory.crops) systemMemory.crops = []; 
@@ -284,21 +381,21 @@ async function askAI(promptText, isContextual = false) {
                  
     let intent = { type: "advice", message: "" };
 
-    // STEP 2: HYBRID INTENT MAPPING
-    const CORE_DICT = {
-        sell_smart_card: ['mandi', 'price', 'bhav', 'bazaar', 'rate', 'sell', 'market', 'vikri', 'paisa', 'paise', 'kimat', 'kimmat', 'dam', 'daam', 'mull'],
-        weather_card: ['weather', 'paus', 'rain', 'hawa', 'tapman', 'barish', 'temperature', 'cloud', 'dhag', 'meen', 'mausam', 'baarish', 'hawaaman', 'mee', 'meeh'],
-        profit_checker_card: ['profit', 'fayda', 'money', 'nufa', 'nfa', 'munafa', 'kamai', 'utpanna', 'income', 'labh'],
-        govt_schemes_card: ['scheme', 'yojana', 'loan', 'subsidy', 'sbsidi', 'bank', 'govt', 'government', 'karj', 'sahayya', 'kisan', 'pmkisan'],
-        crop_doctor: ['disease', 'daag', 'spot', 'kida', 'aali', 'sudi', 'rog', 'bimari', 'bimar', 'doctor', 'pivla', 'peela', 'yellow', 'brown', 'sukh', 'dry', 'leaf', 'pan', 'patte', 'keeda']
-    };
-
+    // STEP 2: HYBRID INTENT MAPPING WITH THRESHOLD
+    const intentRes = detectIntent(q);
     let matchedTarget = null;
-    for (let target in CORE_DICT) {
-        if (CORE_DICT[target].some(keyword => q.includes(keyword))) {
-            matchedTarget = target;
-            break;
-        }
+    let suggestionPrefix = "";
+    
+    if (intentRes.score >= 0.75) {
+        // Direct action
+        matchedTarget = intentRes.intent;
+    } else if (intentRes.score >= 0.5) {
+        // Suggestion
+        matchedTarget = intentRes.intent;
+        if(lang === 'en') suggestionPrefix = "I think you mean this. ";
+        else if(lang === 'mr') suggestionPrefix = "मला वाटते तुम्हाला हे पाहिजे. ";
+        else if(lang === 'pa') suggestionPrefix = "ਮੈਨੂੰ ਲੱਗਦਾ ਹੈ ਤੁਸੀਂ ਇਹ ਚਾਹੁੰਦੇ ਹੋ। ";
+        else suggestionPrefix = "मुझे लगता है आप यह चाहते हैं। ";
     }
 
     const knownCrops = {
@@ -338,40 +435,40 @@ async function askAI(promptText, isContextual = false) {
     if (matchedTarget) {
         intent.type = "navigation"; 
         
-        if (matchedTarget === 'sell_smart_card') {
+        if (matchedTarget === 'sell_smart') {
             intent.target = "nav-sell";
-            if(lang === 'en') intent.message = "You want to check market prices. Taking you to the Sell Smart Mandi tracker.";
-            else if(lang === 'mr') intent.message = "तुम्हाला बाजारभाव पाहायचे आहेत. 'Sell Smart' मंडी ट्रॅकर उघडत आहे.";
-            else if(lang === 'pa') intent.message = "ਤੁਸੀਂ ਮੰਡੀ ਦਾ ਰੇਟ ਦੇਖਣਾ ਚਾਹੁੰਦੇ ਹੋ। 'Sell Smart' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = "आप मंडी के भाव देखना चाहते हैं। 'Sell Smart' मंडी ट्रैकर खोल रहा हूँ।";
+            if(lang === 'en') intent.message = suggestionPrefix + "You want to check market prices. Taking you to the Sell Smart Mandi tracker.";
+            else if(lang === 'mr') intent.message = suggestionPrefix + "तुम्हाला बाजारभाव पाहायचे आहेत. 'Sell Smart' मंडी ट्रॅकर उघडत आहे.";
+            else if(lang === 'pa') intent.message = suggestionPrefix + "ਤੁਸੀਂ ਮੰਡੀ ਦਾ ਰੇਟ ਦੇਖਣਾ ਚਾਹੁੰਦੇ ਹੋ। 'Sell Smart' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = suggestionPrefix + "आप मंडी के भाव देखना चाहते हैं। 'Sell Smart' मंडी ट्रैकर खोल रहा हूँ।";
         }
-        else if (matchedTarget === 'weather_card') {
+        else if (matchedTarget === 'weather') {
             intent.target = "nav-weather";
-            if(lang === 'en') intent.message = "You asked about the weather. Opening the Weather & Rain Forecast.";
-            else if(lang === 'mr') intent.message = "तुम्हाला हवामान आणि पावसाचा अंदाज हवा आहे. हवामान अ‍ॅलर्ट उघडत आहे.";
-            else if(lang === 'pa') intent.message = "ਮੌਸਮ ਅਤੇ ਮੀਂਹ ਬਾਰੇ ਜਾਣਕਾਰੀ ਲਈ ਮੌਸਮ ਅਲਰਟ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = "आप मौसम की जानकारी चाहते हैं। मौसम और बारिश का अलर्ट खोल रहा हूँ।";
+            if(lang === 'en') intent.message = suggestionPrefix + "You asked about the weather. Opening the Weather & Rain Forecast.";
+            else if(lang === 'mr') intent.message = suggestionPrefix + "तुम्हाला हवामान आणि पावसाचा अंदाज हवा आहे. हवामान अ‍ॅलर्ट उघडत आहे.";
+            else if(lang === 'pa') intent.message = suggestionPrefix + "ਮੌਸਮ ਅਤੇ ਮੀਂਹ ਬਾਰੇ ਜਾਣਕਾਰੀ ਲਈ ਮੌਸਮ ਅਲਰਟ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = suggestionPrefix + "आप मौसम की जानकारी चाहते हैं। मौसम और बारिश का अलर्ट खोल रहा हूँ।";
         }
-        else if (matchedTarget === 'profit_checker_card') {
+        else if (matchedTarget === 'profit_checker') {
             intent.target = "nav-profit";
-            if(lang === 'en') intent.message = "You want to estimate profit. Opening the Profit Checker.";
-            else if(lang === 'mr') intent.message = "नफा बघायचा आहे ना? नफा तपासक उघडत आहे.";
-            else if(lang === 'pa') intent.message = "ਮੁਨਾਫਾ ਚੈੱਕ ਕਰਨਾ ਹੈ? 'Profit Checker' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = "मुनाफे का अनुमान लगाना चाहते हैं? प्रॉफिट चेकर खोल रहा हूँ।";
+            if(lang === 'en') intent.message = suggestionPrefix + "You want to estimate profit. Opening the Profit Checker.";
+            else if(lang === 'mr') intent.message = suggestionPrefix + "नफा बघायचा आहे ना? नफा तपासक उघडत आहे.";
+            else if(lang === 'pa') intent.message = suggestionPrefix + "ਮੁਨਾਫਾ ਚੈੱਕ ਕਰਨਾ ਹੈ? 'Profit Checker' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = suggestionPrefix + "मुनाफे का अनुमान लगाना चाहते हैं? प्रॉफिट चेकर खोल रहा हूँ।";
         }
-        else if (matchedTarget === 'govt_schemes_card') {
+        else if (matchedTarget === 'schemes') {
             intent.target = "nav-comm"; 
-            if(lang === 'en') intent.message = "Looking for government schemes? Opening the Community board.";
-            else if(lang === 'mr') intent.message = "तुम्हाला सरकारी योजनांची माहिती हवी आहे का? आमची कम्युनिटी उघडत आहे.";
-            else if(lang === 'pa') intent.message = "ਸਰਕਾਰੀ ਸਕੀਮਾਂ ਦੀ ਜਾਣਕਾਰੀ ਲਈ 'Community' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
-            else intent.message = "आपको सरकारी योजनाओं की जानकारी चाहिए? कम्युनिटी बोर्ड खोल रहा हूँ।";
+            if(lang === 'en') intent.message = suggestionPrefix + "Looking for government schemes? Opening the Community board.";
+            else if(lang === 'mr') intent.message = suggestionPrefix + "तुम्हाला सरकारी योजनांची माहिती हवी आहे का? आमची कम्युनिटी उघडत आहे.";
+            else if(lang === 'pa') intent.message = suggestionPrefix + "ਸਰਕਾਰੀ ਸਕੀਮਾਂ ਦੀ ਜਾਣਕਾਰੀ ਲਈ 'Community' ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।";
+            else intent.message = suggestionPrefix + "आपको सरकारी योजनाओं की जानकारी चाहिए? कम्युनिटी बोर्ड खोल रहा हूँ।";
         }
         else if (matchedTarget === 'crop_doctor') {
             intent.target = "nav-doctor";
-            if(lang === 'en') intent.message = "It sounds like a plant disease. Opening Crop Doctor, please upload a photo.";
-            else if(lang === 'mr') intent.message = "पिकावर रोग दिसतोय. क्रॉप डॉक्टर उघडत आहे, कृपया पानाचा फोटो घ्या.";
-            else if(lang === 'pa') intent.message = "ਰੋਗ ਲੱਗਦਾ ਹੈ। ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ, ਫੋਟੋ ਲਓ।";
-            else intent.message = "ऐसा लगता है कि फसल में कोई बीमारी है। क्रॉप डॉक्टर खोल रहा हूँ, कृपया फोटो अपलोड करें।";
+            if(lang === 'en') intent.message = suggestionPrefix + "It sounds like a plant disease. Opening Crop Doctor, please upload a photo.";
+            else if(lang === 'mr') intent.message = suggestionPrefix + "पिकावर रोग दिसतोय. क्रॉप डॉक्टर उघडत आहे, कृपया पानाचा फोटो घ्या.";
+            else if(lang === 'pa') intent.message = suggestionPrefix + "ਰੋਗ ਲੱਗਦਾ ਹੈ। ਕ੍ਰੌਪ ਡਾਕਟਰ ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ, ਫੋਟੋ ਲਓ।";
+            else intent.message = suggestionPrefix + "ऐसा लगता है कि फसल में कोई बीमारी है। क्रॉप डॉक्टर खोल रहा हूँ, कृपया फोटो अपलोड करें।";
         }
         return _finalizeAI(rawInput, intent, isContextual);
     }
@@ -389,10 +486,10 @@ async function askAI(promptText, isContextual = false) {
         return _finalizeAI(rawInput, intent, isContextual);
     }
 
-    if(lang === 'en') intent.message = "I didn't completely understand that, but you can try using the Crop Doctor to scan for diseases, or tell me more about your crop issues.";
-    else if(lang === 'mr') intent.message = "मला थोडे क्लीअर नाही झाले, पण तुम्ही 'क्रॉप डॉक्टर' वापरून पानाचा फोटो पाठवू शकता, किंवा मला अधिक माहिती द्या.";
-    else if(lang === 'pa') intent.message = "ਮੈਨੂੰ ਥੋੜ੍ਹਾ ਸਮਝ ਨਹੀਂ ਆਇਆ, ਪਰ ਤੁਸੀਂ 'ਕ੍ਰੌਪ ਡਾਕਟਰ' ਦੀ ਵਰਤੋਂ ਕਰ ਸਕਦੇ ਹੋ, ਜਾਂ ਹੋਰ ਮਦਦ ਮੰਗੋ।";
-    else intent.message = "मुझे थोड़ा स्पष्ट नहीं हुआ, लेकिन आप 'क्रॉप डॉक्टर' का उपयोग करके तस्वीर ले सकते हैं, या अपनी समस्या के बारे में और जानकारी दें।";
+    if(lang === 'en') intent.message = "I didn't quite get that. Please try asking again.";
+    else if(lang === 'mr') intent.message = "मला हे स्पष्ट समजले नाही. कृपया पुन्हा सांगा.";
+    else if(lang === 'pa') intent.message = "ਮੈਨੂੰ ਸਮਝ ਨਹੀਂ ਆਇਆ, ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਦੱਸੋ।";
+    else intent.message = "मुझे स्पष्ट समझ नहीं आया। कृपया दोबारा कहें।";
 
     return _finalizeAI(rawInput, intent, isContextual);
 }
@@ -462,7 +559,14 @@ function renderTapToStart() {
 
     document.getElementById('start-btn').onclick = () => {
         if(synthesis.speaking) synthesis.cancel();
-        currentScreen = 'splash'; // MUST go to language selection next!
+        
+        // Skip language selection if user is already onboarded
+        if (systemMemory.name) {
+            currentScreen = 'home';
+        } else {
+            currentScreen = 'splash';
+        }
+        
         renderUI();
     };
 }
@@ -636,6 +740,21 @@ function renderOnboarding() {
 
 // ------------------------------------------------------------------
 function renderHome() {
+    let lang = systemMemory.language || 'hi-IN';
+    let heroText = "कृषि मित्र — भारत द्वारा, भारत के किसानों के लिए";
+    let bottomText = "एडवांस्ड एआई एडवाइजरी: ऑफलाइन / कम इंटरनेट क्षमता के साथ";
+    
+    if (lang.startsWith('en')) {
+        heroText = "KrishiMitra — By India, For India's Farmers";
+        bottomText = "Advanced AI Advisory with Offline / Low Internet Capability";
+    } else if (lang.startsWith('mr')) {
+        heroText = "कृषि मित्र — भारताकडून, भारताच्या शेतकऱ्यांसाठी";
+        bottomText = "प्रगत एआय सल्ला: ऑफलाइन / कमी इंटरनेट क्षमतेसह";
+    } else if (lang.startsWith('pa')) {
+        heroText = "ਕ੍ਰਿਸ਼ੀਮਿੱਤਰ — ਭਾਰਤ ਦੁਆਰਾ, ਭਾਰਤ ਦੇ ਕਿਸਾਨਾਂ ਲਈ";
+        bottomText = "ਐਡਵਾਂਸਡ AI ਸਲਾਹਕਾਰ: ਆਫਲਾਈਨ / ਘੱਟ ਇੰਟਰਨੈੱਟ ਸਮਰੱਥਾ ਦੇ ਨਾਲ";
+    }
+
     appContainer.innerHTML = `
         <div class="screen" style="padding-bottom: 120px;">
             <div class="home-header">
@@ -649,7 +768,7 @@ function renderHome() {
                 <div class="weather-badge"><i class="fa-solid fa-sun" style="color: var(--secondary)"></i> 32°C</div>
             </div>
             
-            <h3 style="margin-bottom: 20px; font-size: 1.15rem;">Advanced AI Advisory</h3>
+            <h3 style="margin-bottom: 20px; font-size: 1.15rem; color: var(--primary-dark);">${heroText}</h3>
             <div class="feature-grid">
                 <div class="feature-card ai-powered" id="nav-chat">
                     <div class="icon-wrapper"><i class="fa-regular fa-comments"></i></div>
@@ -680,17 +799,17 @@ function renderHome() {
                     <span class="feature-title">Community</span>
                 </div>
             </div>
+            
+            <div style="text-align: center; margin-top: 32px;">
+                <p style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                    <i class="fa-solid fa-microchip" style="color: var(--primary); margin-right: 6px;"></i> ${bottomText}
+                </p>
+            </div>
         </div>
         
         <div class="floating-mic-container" id="ask-mitra" title="Ask KrishiMitra">
             <i class="fa-solid fa-microphone"></i>
             <span>Ask KrishiMitra</span>
-        </div>
-        
-        <div id="ai-response-overlay">
-            <button class="close-overlay" id="close-overlay"><i class="fa-solid fa-xmark"></i></button>
-            <div id="ai-response-text">Listening...</div>
-            <p style="font-size: 0.85rem; color: #cbd5e1; margin-top:20px;">Please speak clearly into your phone.</p>
         </div>
         ${getBottomNavHTML('home')}
     `;
@@ -714,30 +833,66 @@ function renderHome() {
     document.getElementById('nav-comm').onclick = () => { currentScreen = 'mock-comm'; renderUI(); };
 
     const mic = document.getElementById('ask-mitra');
-    const overlay = document.getElementById('ai-response-overlay');
-    const overlayText = document.getElementById('ai-response-text');
+
+    // Global handles to support toggle behavior
+    let activeRecognition = null;
+    let isRecordingToggle = false;
 
     mic.onclick = async () => {
         if(synthesis.speaking) synthesis.cancel();
-        overlay.classList.add('visible');
-        overlayText.innerText = "Listening for 5 seconds...";
+
+        if (isRecordingToggle) {
+            // Stop recording
+            if (activeRecognition) activeRecognition.stop();
+            isRecordingToggle = false;
+            mic.classList.remove('active');
+            mic.querySelector('span').innerText = 'Ask KrishiMitra';
+            return;
+        }
+
+        // Start recording
         mic.classList.add('active'); 
+        mic.querySelector('span').innerText = 'Listening... Tap to stop';
+        isRecordingToggle = true;
         
         try {
             await new Promise(r => setTimeout(r, 400));
-            const userQuestion = await listenVoiceContinuous(systemMemory.language, 5500);
+            const userQuestion = await new Promise((resolve, reject) => {
+                if (!SpeechRecognition) return reject('Not supported');
+                
+                const recognition = new SpeechRecognition();
+                activeRecognition = recognition;
+                recognition.lang = systemMemory.language || 'hi-IN';
+                recognition.interimResults = true; 
+                recognition.continuous = true; 
+                
+                let finalTrans = '';
+                let tempTrans = '';
+                recognition.onresult = (event) => {
+                    tempTrans = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) finalTrans += event.results[i][0].transcript;
+                        else tempTrans += event.results[i][0].transcript;
+                    }
+                };
+                recognition.onerror = (e) => reject(e.error);
+                recognition.onend = () => resolve((finalTrans + tempTrans).trim());
+                recognition.start();
+            });
+            
             mic.classList.remove('active');
+            mic.querySelector('span').innerText = 'Thinking...';
+            isRecordingToggle = false;
             
             if(!userQuestion || userQuestion.length < 2) {
-                overlayText.innerText = "Did not catch that. Please tap again.";
                 speakText(getVoiceString('micError'), systemMemory.language);
-                setTimeout(() => { overlay.classList.remove('visible'); }, 3000);
+                mic.querySelector('span').innerText = 'Ask KrishiMitra';
                 return;
             }
             
-            overlayText.innerText = `You: "${userQuestion}"\n\nThinking...`;
             const replyObj = await askAI(userQuestion, false);
-            overlayText.innerText = replyObj.message;
+            
+            mic.querySelector('span').innerText = 'Ask KrishiMitra';
             await speakText(replyObj.message, systemMemory.language);
             
             // Execute Advanced Agent Tasks Behind the Scenes
@@ -755,21 +910,15 @@ function renderHome() {
                     // Physically click and navigate the UI on behalf of the user after voice finishes!
                     setTimeout(() => {
                         targetEl.click();
-                        overlay.classList.remove('visible');
                     }, 4500);
                 }
             }
-
-            setTimeout(() => { if(overlay.classList.contains('visible') && replyObj.type !== 'navigation') overlay.classList.remove('visible'); }, 8000);
         } catch(err) {
             mic.classList.remove('active');
-            overlayText.innerText = "Check microphone permissions.";
-            setTimeout(() => { overlay.classList.remove('visible'); }, 4000);
+            mic.querySelector('span').innerText = 'Ask KrishiMitra';
+            isRecordingToggle = false;
+            if(err !== 'no-speech') console.error("Mic error:", err);
         }
-    };
-    document.getElementById('close-overlay').onclick = () => {
-        overlay.classList.remove('visible');
-        if (synthesis.speaking) synthesis.cancel();
     };
 }
 

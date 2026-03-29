@@ -417,6 +417,43 @@ async function askAI(promptText, isContextual = false) {
                  
     let intent = { type: "advice", message: "" };
 
+    // STEP 1.5: CONTEXT-AWARE INTELLIGENCE LAYER
+    // Automatically intercept generic requests based on the user's active screen
+    const helpKeywords = ['help', 'madat', 'madad', 'sahayata', 'kya karu', 'guide', 'मदद', 'मदत', 'ਮਦਦ', 'what do i do', 'kaise use karu'];
+    const isAskingHelp = helpKeywords.some(kw => q.includes(kw));
+
+    if (isAskingHelp) {
+        let helpMessage = "";
+        if (currentScreen === 'profile') {
+            helpMessage = lang === 'en' ? "You are on the Profile Page. Tap 'Edit Profile' below to update your name, language, or village details." 
+                        : (lang === 'mr' ? "तुम्ही प्रोफाईल पानावर आहात. 'एडिट प्रोफाईल' टॅप करून तुम्ही माहिती बदलू शकता." 
+                        : "आप प्रोफाइल पेज पर हैं। आप 'एडिट प्रोफाइल' पर टैप करके अपनी जानकारी अपडेट कर सकते हैं।");
+        } else if (currentScreen === 'doctor') {
+            helpMessage = lang === 'en' ? "You are in the Crop Doctor. Tap the 'Snap Photo' camera button to upload a picture of a diseased crop."
+                        : (lang === 'mr' ? "तुम्ही क्रॉप डॉक्टरमध्ये आहात. वनस्पतीचा फोटो काढण्यासाठी 'स्पॅप फोटो' वर टॅप करा." 
+                        : "आप क्रॉप डॉक्टर में हैं। पौधे की तस्वीर खींचने के लिए 'स्नैप फोटो' बटन दबाएं।");
+        } else if (currentScreen === 'mock-sell') {
+            helpMessage = lang === 'en' ? "You are in Sell Smart. Here you can see the latest Mandi rates for crops like Onion and Tomato."
+                        : (lang === 'mr' ? "तुम्ही बाजारभाव विभागात आहात. इथे तुम्ही नवीनतम मंडी दर पाहू शकता." 
+                        : "आप मंडी भाव में हैं। यहाँ आप अपनी फसल के नए मार्केट रेट्स देख सकते हैं।");
+        } else if (currentScreen === 'mock-weather') {
+            helpMessage = lang === 'en' ? "This is the Weather Alert page showing conditions for your village."
+                        : "यह मौसम अलर्ट पेज है जहाँ आप मौसम की जानकारी देख सकते हैं।";
+        } else if (currentScreen === 'mock-comm') {
+            helpMessage = lang === 'en' ? "This is the Community forum. Tap any farmer's post to join the conversation."
+                        : "यह कम्युनिटी फोरम है। आप अन्य किसानों से बात कर सकते हैं।";
+        } else if (currentScreen === 'chat') {
+            helpMessage = lang === 'en' ? "You are chatting with me! Type or speak your farming questions."
+                        : "आप मुझसे चैट कर रहे हैं। कोई भी कृषि प्रश्न पूछें।";
+        }
+        
+        if (helpMessage) {
+            intent.type = "advice";
+            intent.message = helpMessage;
+            return _finalizeAI(rawInput, intent, isContextual);
+        }
+    }
+
     // STEP 2: HYBRID INTENT MAPPING WITH THRESHOLD
     const intentRes = detectIntent(q);
     let matchedTarget = null;
@@ -559,6 +596,16 @@ function renderUI() {
         case 'doctor': renderDoctor(); break;
         case 'profile': renderProfile(); break;
         default: if (currentScreen.startsWith('mock-')) renderMockFeature(currentScreen);
+    }
+    
+    // Global Context-Aware AI UI Controller
+    const globalMic = document.getElementById('global-mic');
+    if (globalMic) {
+        if (['home', 'doctor', 'chat', 'mock-profit', 'mock-weather', 'mock-sell', 'mock-comm', 'profile'].includes(currentScreen)) {
+            globalMic.style.display = 'flex';
+        } else {
+            globalMic.style.display = 'none';
+        }
     }
 }
 
@@ -850,11 +897,6 @@ function renderHome() {
                 </p>
             </div>
         </div>
-        
-        <div class="floating-mic-container" id="ask-mitra" title="Ask KrishiMitra">
-            <i class="fa-solid fa-microphone"></i>
-            <span>Ask KrishiMitra</span>
-        </div>
         ${getBottomNavHTML('home')}
     `;
     attachNavListeners();
@@ -875,93 +917,6 @@ function renderHome() {
     document.getElementById('nav-weather').onclick = () => { currentScreen = 'mock-weather'; renderUI(); };
     document.getElementById('nav-sell').onclick = () => { currentScreen = 'mock-sell'; renderUI(); };
     document.getElementById('nav-comm').onclick = () => { currentScreen = 'mock-comm'; renderUI(); };
-
-    const mic = document.getElementById('ask-mitra');
-
-    // Global handles to support toggle behavior
-    let activeRecognition = null;
-    let isRecordingToggle = false;
-
-    mic.onclick = async () => {
-        if(synthesis.speaking) synthesis.cancel();
-
-        if (isRecordingToggle) {
-            // Stop recording
-            if (activeRecognition) activeRecognition.stop();
-            isRecordingToggle = false;
-            mic.classList.remove('active');
-            mic.querySelector('span').innerText = 'Ask KrishiMitra';
-            return;
-        }
-
-        // Start recording
-        mic.classList.add('active'); 
-        mic.querySelector('span').innerText = 'Listening... Tap to stop';
-        isRecordingToggle = true;
-        
-        try {
-            const userQuestion = await new Promise((resolve, reject) => {
-                if (!SpeechRecognition) return reject('Not supported');
-                
-                const recognition = new SpeechRecognition();
-                activeRecognition = recognition;
-                recognition.lang = systemMemory.language || 'hi-IN';
-                recognition.interimResults = true; 
-                recognition.continuous = true; 
-                
-                let finalTrans = '';
-                let tempTrans = '';
-                recognition.onresult = (event) => {
-                    tempTrans = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) finalTrans += event.results[i][0].transcript;
-                        else tempTrans += event.results[i][0].transcript;
-                    }
-                };
-                recognition.onerror = (e) => reject(e.error);
-                recognition.onend = () => resolve((finalTrans + tempTrans).trim());
-                
-                setTimeout(() => {
-                    if (isRecordingToggle) {
-                        try { recognition.start(); } catch(e) { reject(e); }
-                    } else {
-                        resolve('');
-                    }
-                }, 200); // reduced delay to prevent missed fast-speech
-            });
-            
-            mic.classList.remove('active');
-            mic.querySelector('span').innerText = 'Thinking...';
-            isRecordingToggle = false;
-            
-            if(!userQuestion || userQuestion.length < 2) {
-                speakText(getVoiceString('micError'), systemMemory.language);
-                mic.querySelector('span').innerText = 'Ask KrishiMitra';
-                return;
-            }
-            
-            const replyObj = await askAI(userQuestion, false);
-            
-            mic.querySelector('span').innerText = 'Ask KrishiMitra';
-            await speakText(replyObj.message, systemMemory.language);
-            
-            // Execute Advanced Agent Tasks Behind the Scenes
-            if (replyObj.type === 'action' && replyObj.field === 'name') {
-                systemMemory.name = replyObj.value;
-                saveMemory();
-                renderUI(); // Refresh header
-            } else if (replyObj.type === 'navigate' && replyObj.target) {
-                navigateTo(replyObj.target);
-            } else if (replyObj.type === 'highlight' && replyObj.target) {
-                highlightCard(replyObj.target);
-            }
-        } catch(err) {
-            mic.classList.remove('active');
-            mic.querySelector('span').innerText = 'Ask KrishiMitra';
-            isRecordingToggle = false;
-            if(err !== 'no-speech') console.error("Mic error:", err);
-        }
-    };
 }
 
 // ------------------------------------------------------------------
@@ -1280,5 +1235,107 @@ function attachNavListeners() {
     });
 }
 
+// ------------------------------------------------------------------
+// GLOBAL AI ASSISTANT INITIALIZATION
+// ------------------------------------------------------------------
+function initGlobalMic() {
+    const mic = document.getElementById('global-mic');
+    if (!mic) return;
+
+    let activeRecognition = null;
+    let isRecordingToggle = false;
+
+    mic.onclick = async () => {
+        if(synthesis.speaking) synthesis.cancel();
+
+        if (isRecordingToggle) {
+            if (activeRecognition) activeRecognition.stop();
+            isRecordingToggle = false;
+            mic.classList.remove('active');
+            mic.querySelector('span').innerText = 'Ask KrishiMitra';
+            return;
+        }
+
+        mic.classList.add('active'); 
+        mic.querySelector('span').innerText = 'Listening... Tap to stop';
+        isRecordingToggle = true;
+        
+        try {
+            const userQuestion = await new Promise((resolve, reject) => {
+                const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRec) return reject('Not supported');
+                
+                const recognition = new SpeechRec();
+                activeRecognition = recognition;
+                recognition.lang = systemMemory.language || 'hi-IN';
+                recognition.interimResults = true; 
+                recognition.continuous = true; 
+                
+                let finalTrans = '';
+                let tempTrans = '';
+                recognition.onresult = (event) => {
+                    tempTrans = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) finalTrans += event.results[i][0].transcript;
+                        else tempTrans += event.results[i][0].transcript;
+                    }
+                };
+                recognition.onerror = (e) => reject(e.error);
+                recognition.onend = () => resolve((finalTrans + tempTrans).trim());
+                
+                setTimeout(() => {
+                    if (isRecordingToggle) {
+                        try { recognition.start(); } catch(e) { reject(e); }
+                    } else {
+                        resolve('');
+                    }
+                }, 200);
+            });
+            
+            mic.classList.remove('active');
+            mic.querySelector('span').innerText = 'Thinking...';
+            isRecordingToggle = false;
+            
+            if(!userQuestion || userQuestion.length < 2) {
+                speakText(getVoiceString('micError'), systemMemory.language);
+                mic.querySelector('span').innerText = 'Ask KrishiMitra';
+                return;
+            }
+            
+            const replyObj = await askAI(userQuestion, false);
+            
+            mic.querySelector('span').innerText = 'Ask KrishiMitra';
+            await speakText(replyObj.message, systemMemory.language);
+            
+            if (replyObj.type === 'action' && replyObj.field === 'name') {
+                systemMemory.name = replyObj.value;
+                saveMemory();
+                renderUI(); 
+            } else if (replyObj.type === 'navigate' && replyObj.target) {
+                // Determine target screen from mapped card ID
+                let t = 'home';
+                if (replyObj.target === 'nav-doctor') t = 'doctor';
+                else if (replyObj.target === 'nav-chat') t = 'chat';
+                else if (replyObj.target === 'nav-sell') t = 'mock-sell';
+                else if (replyObj.target === 'nav-weather') t = 'mock-weather';
+                else if (replyObj.target === 'nav-profit') t = 'mock-profit';
+                else if (replyObj.target === 'nav-comm') t = 'mock-comm';
+                else if (replyObj.target === 'nav-profile') t = 'profile';
+                
+                currentScreen = t;
+                renderUI();
+            } else if (replyObj.type === 'highlight' && replyObj.target) {
+                highlightCard(replyObj.target);
+            }
+        } catch(err) {
+            mic.classList.remove('active');
+            mic.querySelector('span').innerText = 'Ask KrishiMitra';
+            isRecordingToggle = false;
+            if(err !== 'no-speech') console.error("Mic error:", err);
+        }
+    };
+}
+
 // Startup
 renderUI();
+initGlobalMic();

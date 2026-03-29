@@ -340,7 +340,8 @@ function matchPhrases(input, phrases) {
 function fuzzyMatch(input, keywords) {
   let score = 0;
   keywords.forEach(word => {
-    if (input.includes(word) || input.startsWith(word.slice(0, 3))) {
+    // Prevent aggressive short-string false positives by ensuring the input contains the exact word
+    if (input.includes(word)) {
       score = 1.0;
     }
   });
@@ -407,9 +408,9 @@ async function askAI(promptText, isContextual = false) {
     if(!systemMemory.crops) systemMemory.crops = []; 
     await new Promise(r => setTimeout(r, 1600)); // Simulate GPT Inference Delay
     
-    // STEP 1: PREPROCESSING
+    // STEP 1: PREPROCESSING (Keep all native characters)
     const rawInput = promptText;
-    const q = promptText.toLowerCase().replace(/[^a-z0-9\u0900-\u097F\u0A00-\u0A7F\s]/gi, '').trim();
+    const q = promptText.toLowerCase().trim();
     const lang = systemMemory.language.startsWith('en') ? 'en' :
                  systemMemory.language.startsWith('mr') ? 'mr' :
                  systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
@@ -663,32 +664,32 @@ function renderOnboarding() {
                 <div>
                     <label style="font-weight: 600; margin-bottom: 8px; display:block;">Name / नाम</label>
                     <div style="display:flex; gap: 12px;">
-                        <input type="text" id="ob-name" placeholder="E.g. Ramesh" required>
+                        <input type="text" id="ob-name" placeholder="E.g. Ramesh" value="${systemMemory.name || ''}" required>
                         <button class="btn-primary" id="mic-name" style="width: auto; padding: 16px 20px;"><i class="fa-solid fa-microphone"></i></button>
                     </div>
                 </div>
                 <div>
                     <label style="font-weight: 600; margin-bottom: 8px; display:block;">Phone / नंबर</label>
-                    <input type="tel" id="ob-phone" placeholder="10-digit number" maxlength="10" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" required>
+                    <input type="tel" id="ob-phone" placeholder="10-digit number" maxlength="10" inputmode="numeric" value="${systemMemory.phone || ''}" oninput="this.value = this.value.replace(/[^0-9]/g, '');" required>
                     <p id="phone-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 6px; display: none;"><i class="fa-solid fa-circle-exclamation"></i> Enter valid 10-digit mobile number</p>
                 </div>
                 <div>
                     <label style="font-weight: 600; margin-bottom: 8px; display:block;">Village / गाँव</label>
                     <div style="display:flex; gap: 12px;">
-                        <input type="text" id="ob-region" placeholder="E.g. Pune" required>
+                        <input type="text" id="ob-region" placeholder="E.g. Pune" value="${systemMemory.region || ''}" required>
                         <button class="btn-primary" id="mic-region" style="width: auto; padding: 16px 20px;"><i class="fa-solid fa-microphone"></i></button>
                     </div>
                 </div>
                 <div>
                     <label style="font-weight: 600; margin-bottom: 8px; display:block;">Gender / लिंग</label>
                     <select id="ob-gender" style="width: 100%; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 1rem; background: #f8fafc; color: var(--text-main);" required>
-                        <option value="" disabled selected>Select Gender</option>
-                        <option value="Male">Male / पुरुष</option>
-                        <option value="Female">Female / महिला</option>
-                        <option value="Other">Other / अन्य</option>
+                        <option value="" disabled ${!systemMemory.gender ? 'selected' : ''}>Select Gender</option>
+                        <option value="Male" ${systemMemory.gender === 'Male' ? 'selected' : ''}>Male / पुरुष</option>
+                        <option value="Female" ${systemMemory.gender === 'Female' ? 'selected' : ''}>Female / महिला</option>
+                        <option value="Other" ${systemMemory.gender === 'Other' ? 'selected' : ''}>Other / अन्य</option>
                     </select>
                 </div>
-                <button class="btn-primary" id="finish-onboard" style="margin-top: 32px; box-shadow: var(--shadow-floating);">Create Account</button>
+                <button class="btn-primary" id="finish-onboard" style="margin-top: 32px; box-shadow: var(--shadow-floating);">${systemMemory.name ? 'Update Profile' : 'Create Account'}</button>
                 
                 <div style="display: flex; align-items: center; margin: 8px 0;">
                     <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
@@ -1236,8 +1237,11 @@ function renderProfile() {
                     <div class="profile-detail"><span>Language</span><span>${langMap[Object.keys(langMap).find(k=>langMap[k].code===systemMemory.language) || 'hi'].name}</span></div>
                 </div>
                 
-                <button class="btn-secondary" id="logout-prof" style="margin-top: 40px; border-radius: 12px; font-weight: 700;">
-                    <i class="fa-solid fa-right-from-bracket"></i> Edit Details & Logout
+                <button class="btn-primary" id="edit-prof" style="margin-top: 40px; border-radius: 12px; font-weight: 700; background: var(--secondary);">
+                    <i class="fa-solid fa-pen"></i> Edit Profile
+                </button>
+                <button class="btn-secondary" id="logout-prof" style="margin-top: 16px; border-radius: 12px; font-weight: 700; border: 2px solid #ef4444; color: #ef4444;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
                 </button>
             </div>
             
@@ -1247,6 +1251,8 @@ function renderProfile() {
     `;
     attachNavListeners();
     document.getElementById('back-prof').onclick = () => { currentScreen = 'home'; renderUI(); };
+    
+    document.getElementById('edit-prof').onclick = () => { currentScreen = 'onboarding'; renderUI(); };
     
     document.getElementById('logout-prof').onclick = () => {
         // Clear logic for logout

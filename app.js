@@ -310,6 +310,14 @@ const CORE_DICT = {
   schemes: {
     keywords: ["yojana", "scheme", "subsidy", "government", "योजना", "सब्सिडी", "सरकारी", "ਸਕੀਮ", "ਸਬਸਿਡੀ"],
     phrases: ["sarkari madat", "farmer scheme", "yojana sang", "सरकारी योजना", "सरकारी मदत", "ਕਿਸਾਨ ਸਕੀਮ"]
+  },
+  chat: {
+    keywords: ["chat", "talk", "baat", "shiksha", "sahayata", "help", "मदद", "बात", "मदत", "ਮਦਦ", "ਗੱਲ"],
+    phrases: ["baat karni hai", "talk to you", "help me", "मेरी मदद करो", "मला मदत करा", "ਮੇਰੀ ਮਦਦ ਕਰੋ"]
+  },
+  profile: {
+    keywords: ["profile", "settings", "language", "bhasha", "naam", "name", "प्रोफाइल", "भाषा", "नाम", "नाव"],
+    phrases: ["change language", "my profile", "update name", "भाषा बदलें", "माझी प्रोफाईल", "ਭਾਸ਼ਾ ਬਦਲੋ"]
   }
 };
 
@@ -464,41 +472,45 @@ async function askAI(promptText, isContextual = false) {
         weather: "nav-weather",
         profit_checker: "nav-profit",
         crop_doctor: "nav-doctor",
-        schemes: "nav-comm"
+        schemes: "nav-comm",
+        chat: "nav-chat",
+        profile: "nav-profile"
     };
     const ACTIVE_FEATURES = ["crop_doctor", "schemes", "profile", "chat"];
 
     if (matchedTarget) {
         let cardId = NAV_MAP[matchedTarget];
         
-        if (intentRes.score >= 0.75) {
-            // HIGH SCORE -> Navigate or Highlight
-            if (ACTIVE_FEATURES.includes(matchedTarget)) {
-                intent.type = "navigate";
-                intent.target = cardId;
-                
-                if(lang === 'en') intent.message = `Opening ${matchedTarget.replace('_', ' ')}`;
-                else if(lang === 'mr') intent.message = `${matchedTarget} उघडत आहे`;
-                else if(lang === 'pa') intent.message = `${matchedTarget} ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ`;
-                else intent.message = `${matchedTarget} खोल रहा हूँ`;
-            } else {
-                intent.type = "highlight";
-                intent.target = cardId;
-                
-                if(lang === 'en') intent.message = "This feature is available right here.";
-                else if(lang === 'mr') intent.message = "हे वैशिष्ट्य येथे उपलब्ध आहे.";
-                else if(lang === 'pa') intent.message = "ਇਹ ਵਿਸ਼ੇਸ਼ਤਾ ਇੱਥੇ ਉਪਲਬਧ ਹੈ।";
-                else intent.message = "यह फीचर यहाँ उपलब्ध है।";
-            }
-        } else if (intentRes.score >= 0.5) {
-            // MEDIUM SCORE -> Highlight + Suggest
-            intent.type = "highlight";
+        if (intentRes.score >= 0.5) {
+            // ALWAYS Navigate for recognized intents based on latest UX feedback
+            intent.type = "navigate";
             intent.target = cardId;
             
-            if(lang === 'en') intent.message = "You can try this feature.";
-            else if(lang === 'mr') intent.message = "तुम्ही हे वापरून पाहू शकता.";
-            else if(lang === 'pa') intent.message = "ਤੁਸੀਂ ਇਹ ਅਜ਼ਮਾ ਸਕਦੇ ਹੋ।";
-            else intent.message = "आप यह ट्राई कर सकते हैं।";
+            if (ACTIVE_FEATURES.includes(matchedTarget)) {
+                // ACTIVE WORKING FEATURE -> Open + Speak GUIDANCE
+                if (matchedTarget === 'crop_doctor') {
+                    if(lang === 'en') intent.message = "Opening Crop Doctor. Please tap the camera button to upload a picture of your sick plant.";
+                    else if(lang === 'mr') intent.message = "क्रॉप डॉक्टर उघडत आहे. कृपया आजारी रोपाचा फोटो अपलोड करण्यासाठी कॅमेरा बटणावर टॅप करा.";
+                    else intent.message = "क्रॉप डॉक्टर खोल रहा हूँ। बीमार पौधे की तस्वीर अपलोड करने के लिए कृपया कैमरा बटन दबाएं।";
+                } else if (matchedTarget === 'chat') {
+                    if(lang === 'en') intent.message = "Opening Chat. You can type or use the mic to ask me any farming questions.";
+                    else if(lang === 'mr') intent.message = "चॅट उघडत आहे. तुम्ही मला शेतीविषयी काहीही प्रश्न विचारू शकता.";
+                    else intent.message = "चैट खोल रहा हूँ। आप यहाँ मुझसे खेती से जुड़ी कोई भी सहायता मांग सकते हैं।";
+                } else if (matchedTarget === 'profile') {
+                    if(lang === 'en') intent.message = "Opening Profile. Here you can update your personal details and language.";
+                    else if(lang === 'mr') intent.message = "प्रोफाइल उघडत आहे. येथे तुम्ही तुमची माहिती आणि भाषा बदलू शकता.";
+                    else intent.message = "प्रोफाइल खोल रहा हूँ। यहाँ आप अपनी जानकारी और भाषा बदल सकते हैं।";
+                } else {
+                    if(lang === 'en') intent.message = `Opening ${matchedTarget.replace('_', ' ')}. Please explore the options.`;
+                    else intent.message = `${matchedTarget} खोल रहा हूँ। कृपया विकल्पों का उपयोग करें।`;
+                }
+            } else {
+                // MOCK FEATURE -> Only Open
+                if(lang === 'en') intent.message = `Opening ${matchedTarget.replace('_', ' ')}.`;
+                else if(lang === 'mr') intent.message = `${matchedTarget} उघडत आहे.`;
+                else if(lang === 'pa') intent.message = `${matchedTarget} ਖੋਲ੍ਹ ਰਿਹਾ ਹਾਂ।`;
+                else intent.message = `${matchedTarget} खोल रहा हूँ।`;
+            }
         }
         
         return _finalizeAI(rawInput, intent, isContextual);
@@ -789,7 +801,7 @@ function renderHome() {
     appContainer.innerHTML = `
         <div class="screen" style="padding-bottom: 120px;">
             <div class="home-header">
-                <div class="profile-info" onclick="currentScreen='profile'; renderUI();" style="cursor:pointer">
+                <div class="profile-info" id="nav-profile" onclick="currentScreen='profile'; renderUI();" style="cursor:pointer">
                     <div class="avatar">${systemMemory.name.charAt(0) || 'F'}</div>
                     <div class="user-details">
                         <h2>${systemMemory.name}</h2>

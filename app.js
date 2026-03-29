@@ -197,6 +197,28 @@ async function speakText(text, langCode = systemMemory.language) {
     });
 }
 
+function speakAction(text) {
+    return new Promise((resolve) => {
+        if (!synthesis) return resolve();
+        if (synthesis.speaking) synthesis.cancel();
+        
+        const cleanText = text.replace(/<[^>]*>/g, '').replace(/[✔➡]/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = systemMemory.language || 'hi-IN';
+        
+        // Add warmth and supportiveness
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
+        
+        utterance.onend = resolve;
+        utterance.onerror = resolve;
+        synthesis.speak(utterance);
+        
+        // Failsafe
+        setTimeout(resolve, Math.max(3000, cleanText.length * 150));
+    });
+}
+
 function listenVoiceContinuous(langCode = systemMemory.language, maxMs = 5500) {
     return new Promise((resolve, reject) => {
         if (!SpeechRecognition) {
@@ -1090,44 +1112,55 @@ function renderDoctor() {
                                  systemMemory.language.startsWith('mr') ? 'mr' :
                                  systemMemory.language.startsWith('pa') ? 'pa' : 'hi';
 
+                    // TASK 3.6 & 3.10: RESPONSE PERSONALIZATION + HONORIFIC TITLE
+                    const gender = systemMemory.gender || 'Male';
+                    let title = "";
+                    if(lang === 'mr') title = gender === 'Male' ? "Bhau" : "Tai";
+                    else if(lang === 'pa') title = gender === 'Male' ? "Bhaji" : "Bhenji";
+                    else if(lang === 'hi') title = gender === 'Male' ? "Bhaiya" : "Didi";
+                    else title = gender === 'Male' ? "Brother" : "Sister";
+                    
+                    const scorePct = Math.round(score * 100);
+
                     // STEP 1: IMAGE VALIDATION (Blurry, Low Confidence, or Definitely Not a Plant)
                     if (!isPlantMatch || score < 0.10 || (score > 0.4 && topGuess.match(/screen|wall|mouse|person|desk|fabric|monitor|keyboard|laptop|phone/))) {
-                        let errStr = "This image is not clear or it's not a leaf. Please send a clear photo of the leaf.";
-                        if(lang === 'mr') errStr = "हे चित्र क्लिअर नाही आहे किंवा पान नाही. कृपया पानाचा स्वच्छ फोटो पाठवा.";
-                        if(lang === 'pa') errStr = "ਇਹ ਫੋਟੋ ਸਾਫ ਨਹੀਂ ਹੈ, ਕਿਰਪਾ ਕਰਕੇ ਪੱਤੇ ਦੀ ਸਾਫ ਫੋਟੋ ਭੇਜੋ।";
-                        if(lang === 'hi') errStr = "तस्वीर स्पष्ट नहीं है या पत्ता नहीं है। कृपया पत्ते की फोटो भेजें।";
+                        let msg = `${title}, this photo is not clear.<br><br>✔ Please take a close photo of the leaf.<br>➡ Send it again, I am here to help.`;
+                        if(lang === 'mr') msg = `${title}, photo clear nahi aahe.<br><br>✔ Krupaya panacha (leaf) close photo ghya.<br>➡ Ani parat pathva, mi madat karto.`;
+                        if(lang === 'pa') msg = `${title}, photo saaf nahi hai.<br><br>✔ Kirpa karke patte di nede ton photo lao.<br>➡ Te dobara bhejo, main thodi madad karanga.`;
+                        if(lang === 'hi') msg = `${title}, photo saaf nahi hai.<br><br>✔ Kripya patte (leaf) ki paas se photo lein.<br>➡ Aur wapas bhejein, main madad karunga.`;
 
                         document.getElementById('doctor-result').style.color = "#ef4444";
-                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-triangle-exclamation'></i> ${errStr}`;
-                        await speakText(errStr, systemMemory.language);
+                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-triangle-exclamation'></i> ${msg}`;
+                        await speakAction(msg);
                         return;
                     }
 
-                    // STEP 2: AI RESPONSE CHECK (It is a plant, but certainty is low)
+                    // STEP 2: LOW CONFIDENCE (Double Suggestion System)
                     if (isPlantMatch && score < 0.45) {
-                        let errStr = "I cannot identify it exactly, but it might be a disease. Try a Neem spray and upload a clearer photo.";
-                        if(lang === 'mr') errStr = "मी नक्की ओळखू शकत नाही, पण हा रोग असू शकतो. निम फवारणी करा आणि स्पष्ट फोटो पाठवा.";
-                        if(lang === 'pa') errStr = "ਮੈਂ ਪਛਾਣ ਨਹੀਂ ਸਕਦਾ, ਪਰ ਇਹ ਬਿਮਾਰੀ ਹੋ ਸਕਦੀ ਹੈ। ਨਿੰਮ ਸਪਰੇਅ ਕਰੋ ਅਤੇ ਸਾਫ ਫੋਟੋ ਭੇਜੋ।";
-                        if(lang === 'hi') errStr = "मैं ठीक से पहचान नहीं सकता, लेकिन यह बीमारी हो सकती है। नीम स्प्रे करें और साफ फोटो भेजें।";
+                        let msg = `${title}, I cannot identify it exactly. But it might be early disease.<br><br>✔ Try applying Neem spray.<br>➡ And send a clear photo again.`;
+                        if(lang === 'mr') msg = `${title}, mi exact olakh shakat nahi. Pan ha rog asu shakto.<br><br>✔ Aata: Neem spray try kara.<br>➡ Pudhe: Ekda clear photo parat pathva.`;
+                        if(lang === 'pa') msg = `${title}, main pakka nahi dass sakda. Par eh bimari lag rahi hai.<br><br>✔ Hun: Neem spray karo.<br>➡ Agge: Ek war dobara saaf photo bhejo.`;
+                        if(lang === 'hi') msg = `${title}, main theek se pehchan nahi paa raha hu. Par ye bimari ho sakti hai.<br><br>✔ Abhi: Neem spray karein.<br>➡ Aage: Ek baar saaf photo aur bhejein.`;
 
-                        document.getElementById('doctor-result').style.color = "var(--primary-dark)";
-                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-circle-info'></i> ${errStr}`;
-                        await speakText(errStr, systemMemory.language);
+                        document.getElementById('doctor-result').style.color = "var(--secondary)";
+                        document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-circle-question'></i> ${msg}`;
+                        await speakAction(msg);
                         return;
                     }
                     
-                    // STEP 3: EXACT MATCH (Highly confident Plant Identification -> Fetch Strict Deep Knowledge Diagnosis)
-                    // Phase 6 & 7: GPT-Style Contextual Reasoning Agent Simulation using Deep Offline DB
+                    // STEP 3: EXACT MATCH (Highly confident -> Strict Diagnosis)
                     let userCrop = systemMemory.crops.length > 0 ? systemMemory.crops[systemMemory.crops.length - 1] : "crop";
                     let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
+                    let rawDiagnosis = KrishiKnowledgeDB[dbCropKey].disease[lang] || "disease";
                     
-                    let diagnosis = KrishiKnowledgeDB[dbCropKey].disease[lang];
-                    
-                    let displayMsg = `<i class='fa-solid fa-check-circle'></i> Agronomy Vision AI: Confirmed ${userCrop.toUpperCase()} Leaf (${(score*100).toFixed(0)}%).<br><span style="color:#ef4444; margin-top:8px; display:block; font-weight: 500;">${diagnosis}</span>`;
+                    let msg = `${title}, I am ${scorePct}% sure this is ${rawDiagnosis}.<br><br>✔ Apply the recommended fungicide spray.<br>➡ Check back again in 3 days.`;
+                    if(lang === 'mr') msg = `${title}, mi ${scorePct}% sure aahe ki ha ${rawDiagnosis} aahe.<br><br>✔ योग्य बुरशीनाशक (Fungicide) फवारा.<br>➡ 3 दिवसात परत निरीक्षण करा.`;
+                    if(lang === 'pa') msg = `${title}, main ${scorePct}% sure haan ki eh ${rawDiagnosis} hai.<br><br>✔ Sahi ulti-nashak (Fungicide) spray karo.<br>➡ 3 din baad parakh karo.`;
+                    if(lang === 'hi') msg = `${title}, main ${scorePct}% sure hoon ki yeh ${rawDiagnosis} hai.<br><br>✔ Sahi fungicide spray karein.<br>➡ 3 din baad wapas check karein.`;
 
                     document.getElementById('doctor-result').style.color = "var(--primary-dark)";
-                    document.getElementById('doctor-result').innerHTML = displayMsg;
-                    await speakText(diagnosis, systemMemory.language);
+                    document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-check-circle'></i> <span style="font-weight: 500;">${msg}</span>`;
+                    await speakAction(msg);
                 });
             };
         }

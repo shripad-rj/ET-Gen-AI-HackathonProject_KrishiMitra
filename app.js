@@ -182,8 +182,11 @@ async function speakText(text, langCode = systemMemory.language) {
     }
 
     utterance.volume = 1;
-    utterance.rate = 0.85; // Lowered rate significantly to improve clarity on heavy Indian accents 
-    utterance.pitch = 1.0; 
+    utterance.rate = 0.9; // More human conversational rate
+    utterance.pitch = 1.1; // Warmer pitch
+    
+    // Auto-inject Voice Personality "Bhaiya" or "Didi" in Hindi/Marathi if it's an advice response
+    // (This is handled specifically in the Crop Doctor logic explicitly to avoid mis-titling simple navigation)
     
     activeUtterance = utterance; // GC fix
     synthesis.speak(utterance);
@@ -334,8 +337,8 @@ const CORE_DICT = {
     phrases: ["plant problem", "paan var daag", "leaf disease", "पत्तों पर दाग", "पानावर डाग", "बीमारी लग गई", "پودے کی بیماری", "ਪੱਤਿਆਂ 'ਤੇ ਦਾਗ"]
   },
   schemes: {
-    keywords: ["yojana", "scheme", "subsidy", "government", "योजना", "सब्सिडी", "सरकारी", "ਸਕੀਮ", "ਸਬਸਿਡੀ"],
-    phrases: ["sarkari madat", "farmer scheme", "yojana sang", "सरकारी योजना", "सरकारी मदत", "ਕਿਸਾਨ ਸਕੀਮ"]
+    keywords: ["yojana", "yojnaye", "yojna", "स्कीम", "स्कीम्स", "scheme", "schemes", "skim", "subsidy", "government", "apply", "aplay", "aaplay", "योजना", "सब्सिडी", "सरकारी", "ਸਕੀਮ", "ਸਬਸਿਡੀ", "अप्लाई"],
+    phrases: ["sarkari madat", "farmer scheme", "yojana sang", "सरकारी योजना", "सरकारी मदत", "ਕਿਸਾਨ ਸਕੀਮ", "apply yojana", "apply scheme", "स्कीम दिखाओ", "show scheme"]
   },
   chat: {
     keywords: ["chat", "talk", "baat", "shiksha", "sahayata", "help", "मदद", "बात", "मदत", "ਮਦਦ", "ਗੱਲ"],
@@ -480,6 +483,98 @@ async function askAI(promptText, isContextual = false) {
         }
     }
 
+    // TASK 6.4 & 6.5: OFFLINE + LOW INTERNET FALLBACK
+    // If the system detects it is completely offline AND the query is not a local intent like scheme/doctor.
+    if (!navigator.onLine && q.includes('hello') === false && q.includes('scheme') === false && q.includes('doctor') === false) {
+        let offMsg = "Aapka Internet abhi band hai. Par main offline hoon! Aap Neem spray use karein, ya offline crop doctor use karein.";
+        if(lang === 'en') offMsg = "Your internet is disconnected. But KrishiMitra works offline! I can show you basic offline solutions like Neem spray.";
+        if(lang === 'mr') offMsg = "Tumcha Internet chalat nahiye. Pan majha AI offline suru ahe! Neem spray sarakhe offline upay vichara.";
+        if(lang === 'pa') offMsg = "Internet band hai. Par KrishiMitra offline vi chalda hai! Neem spray bare offline salah lao.";
+        
+        intent.type = "advice";
+        intent.message = offMsg;
+        return _finalizeAI(rawInput, intent, isContextual);
+    }
+
+    // TASK 6.1 & 6.2 & 6.3: SMART FOLLOW-UP AI
+    if (systemMemory.conversationState === 'awaiting_disease_duration') {
+        systemMemory.conversationState = null;
+        saveMemory();
+        
+        let isEarly = q.includes('1') || q.includes('2') || q.includes('3') || q.includes('ek') || q.includes('do') || q.includes('teen') || q.includes('don') || q.includes('tin') || q.includes('ik') || q.includes('one') || q.includes('two') || q.includes('three') || q.includes('aaj') || q.includes('kal');
+        
+        // Context-aware conditional response
+        let msg = "";
+        if (isEarly) {
+            msg = "Theek hai, early stage hai. Bataya gaya treatment kafi effective hoga. Ghabrane ki baat nahi hai.";
+            if(lang === 'en') msg = "Okay, since it's only been a few days, it’s an early stage. The treatment will be very effective. Don't worry!";
+            if(lang === 'mr') msg = "Theek ahe, early stage ahe. Upachar prabhavi theil. Ghabru naka.";
+            if(lang === 'pa') msg = "Theek hai, shuruati daur hai. Ilaaj asardaar hovega. Ghabrauna nai.";
+        } else {
+            msg = "Thoda purana lag raha hai, isliye turant dawa dalein ya strong treatment ke liye Nearest Krishi Kendra visit karein.";
+            if(lang === 'en') msg = "Seems it has been a while. Apply the medicine immediately, or visit the nearest agri-center for stronger treatment.";
+            if(lang === 'mr') msg = "Thoda junat vatat ahe, lages aushadh fawara kiva Krushi kendrat ja.";
+            if(lang === 'pa') msg = "Thoda purana lagg reha hai, takda ilaaj chahida hai. Jaldi dawa pao.";
+        }
+        
+        intent.type = "advice";
+        intent.message = msg;
+        return _finalizeAI(rawInput, intent, isContextual);
+    }
+
+    // STEP 1.2: Check Conversational State for Schemes Flow
+    if (systemMemory.conversationState === 'awaiting_apply_confirmation') {
+        let isYes = q.includes('yes') || q.includes('haan') || q.includes('ho') || q.includes('ha ') || q.includes('ha ha') || q.includes('हाँ') || q.includes('हा');
+        let isNo = q.includes('no') || q.includes('nahi') || q.includes('nako') || q.includes('नहीं') || q.includes('ना');
+        
+        if (isYes) {
+            systemMemory.conversationState = 'awaiting_scheme_name';
+            saveMemory();
+            intent.type = "advice";
+            
+            let msg = "Which scheme would you like to apply for? Please tap the mic and tell me the name.";
+            if(lang === 'hi') msg = "आप किस योजना के लिए आवेदन करना चाहते हैं? कृपया माइक पर टैप करें और मुझे नाम बताएं।";
+            if(lang === 'mr') msg = "तुम्हाला कोणत्या योजनेसाठी अर्ज करायचा आहे? कृपया माईकवर टॅप करा आणि मला नाव सांगा.";
+            if(lang === 'pa') msg = "ਤੁਸੀਂ ਕਿਸ ਸਕੀਮ ਲਈ ਅਰਜ਼ੀ ਦੇਣਾ ਚਾਹੁੰਦੇ ਹੋ? ਕਿਰਪਾ ਕਰਕੇ ਮਾਈਕ 'ਤੇ ਟੈਪ ਕਰੋ ਅਤੇ ਮੈਨੂੰ ਨਾਮ ਦੱਸੋ।";
+            
+            intent.message = msg;
+            return _finalizeAI(rawInput, intent, isContextual);
+        } else if (isNo) {
+            systemMemory.conversationState = null;
+            saveMemory();
+            intent.type = "advice";
+            intent.message = lang === 'en' ? "Okay, no problem. Showing you the schemes." : "ठीक है, कोई बात नहीं।";
+            return _finalizeAI(rawInput, intent, isContextual);
+        } else {
+            // Unrecognized response (e.g. user just asked something else). Reset state and fallthrough.
+            systemMemory.conversationState = null;
+            saveMemory();
+        }
+    }
+
+    if (systemMemory.conversationState === 'awaiting_scheme_name') {
+        systemMemory.conversationState = null;
+        saveMemory();
+        
+        let schemeMatch = 'scheme-pmkisan';
+        const lowInput = rawInput.toLowerCase();
+        if(lowInput.includes('soil') || lowInput.includes('health') || lowInput.includes('card') || lowInput.includes('maati') || lowInput.includes('mitti')) {
+             schemeMatch = 'scheme-soil';
+        } else if (lowInput.includes('insurance') || lowInput.includes('fasal') || lowInput.includes('bima') || lowInput.includes('crop')) {
+             schemeMatch = 'scheme-insurance';
+        }
+        
+        let msg = "Processing application...";
+        if(lang === 'hi') msg = "आपका फॉर्म भर रही हूँ...";
+        if(lang === 'mr') msg = "तुमचा फॉर्म भरत आहे...";
+        if(lang === 'pa') msg = "ਮੈਂ ਤੁਹਾਡਾ ਫਾਰਮ ਭਰ ਰਹੀ ਹਾਂ...";
+        
+        intent.type = "auto_apply";
+        intent.target = schemeMatch;
+        intent.message = msg;
+        return _finalizeAI(rawInput, intent, isContextual);
+    }
+
     // STEP 2: HYBRID INTENT MAPPING WITH THRESHOLD
     const intentRes = detectIntent(q);
     let matchedTarget = null;
@@ -536,7 +631,7 @@ async function askAI(promptText, isContextual = false) {
         weather: "nav-weather",
         profit_checker: "nav-profit",
         crop_doctor: "nav-doctor",
-        schemes: "nav-comm",
+        schemes: "nav-schemes",
         chat: "nav-chat",
         profile: "nav-profile"
     };
@@ -564,6 +659,13 @@ async function askAI(promptText, isContextual = false) {
                     if(lang === 'en') intent.message = "Opening Profile. Here you can update your personal details and language.";
                     else if(lang === 'mr') intent.message = "प्रोफाइल उघडत आहे. येथे तुम्ही तुमची माहिती आणि भाषा बदलू शकता.";
                     else intent.message = "प्रोफाइल खोल रहा हूँ। यहाँ आप अपनी जानकारी और भाषा बदल सकते हैं।";
+                } else if (matchedTarget === 'schemes') {
+                    systemMemory.conversationState = 'awaiting_apply_confirmation';
+                    saveMemory();
+                    if(lang === 'en') intent.message = "I will show you the schemes. Do you want me to apply on your behalf? If yes, please tap the mic and say yes.";
+                    else if(lang === 'mr') intent.message = "मी तुम्हाला योजना दाखवतो. मी तुमच्या वतीने अर्ज करू का? असेल तर माईकवर टॅप करून होय म्हणा.";
+                    else if(lang === 'pa') intent.message = "ਮੈਂ ਤੁਹਾਨੂੰ ਸਕੀਮਾਂ ਦਿਖਾਵਾਂਗਾ। ਕੀ ਤੁਸੀਂ ਚਾਹੁੰਦੇ ਹੋ ਕਿ ਮੈਂ ਤੁਹਾਡੀ ਤਰਫੋਂ ਅਰਜ਼ੀ ਦੇਵਾਂ? ਜੇਕਰ ਹਾਂ, ਤਾਂ ਮਾਈਕ 'ਤੇ ਟੈਪ ਕਰੋ ਅਤੇ ਹਾਂ ਕਹੋ।";
+                    else intent.message = "मैं आपको schemes दिखाता हूँ। क्या मैं आपकी ओर से आवेदन कर दूँ? यदि हाँ, तो माइक पर टैप करें और हाँ कहें।";
                 } else {
                     if(lang === 'en') intent.message = `Opening ${matchedTarget.replace('_', ' ')}. Please explore the options.`;
                     else intent.message = `${matchedTarget} खोल रहा हूँ। कृपया विकल्पों का उपयोग करें।`;
@@ -621,13 +723,14 @@ function renderUI() {
         case 'chat': renderChat(); break;
         case 'doctor': renderDoctor(); break;
         case 'profile': renderProfile(); break;
+        case 'schemes': renderSchemes(); break;
         default: if (currentScreen.startsWith('mock-')) renderMockFeature(currentScreen);
     }
     
     // Global Context-Aware AI UI Controller
     const globalMic = document.getElementById('global-mic');
     if (globalMic) {
-        if (['home', 'doctor', 'chat', 'mock-profit', 'mock-weather', 'mock-sell', 'mock-comm', 'profile'].includes(currentScreen)) {
+        if (['home', 'doctor', 'chat', 'mock-profit', 'mock-weather', 'mock-sell', 'mock-comm', 'profile', 'schemes'].includes(currentScreen)) {
             globalMic.style.display = 'flex';
         } else {
             globalMic.style.display = 'none';
@@ -889,7 +992,7 @@ function renderHome() {
             <div class="feature-grid">
                 <div class="feature-card ai-powered" id="nav-chat">
                     <div class="icon-wrapper"><i class="fa-regular fa-comments"></i></div>
-                    <span class="feature-title">Chat with Mitra</span>
+                    <span class="feature-title">Ask Problems</span>
                 </div>
                 <div class="feature-card ai-powered" id="nav-doctor">
                     <div class="icon-wrapper"><i class="fa-solid fa-leaf"></i></div>
@@ -910,6 +1013,10 @@ function renderHome() {
                 <div class="feature-card mock" id="nav-sell">
                     <div class="icon-wrapper" style="color:var(--secondary);"><i class="fa-solid fa-wallet"></i></div>
                     <span class="feature-title">Sell Smart</span>
+                </div>
+                <div class="feature-card mock" id="nav-schemes">
+                    <div class="icon-wrapper" style="color:#10b981;"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                    <span class="feature-title">Schemes</span>
                 </div>
                 <div class="feature-card mock" id="nav-comm">
                     <div class="icon-wrapper" style="color:#6366f1;"><i class="fa-solid fa-users"></i></div>
@@ -942,6 +1049,7 @@ function renderHome() {
     document.getElementById('nav-profit').onclick = () => { currentScreen = 'mock-profit'; renderUI(); };
     document.getElementById('nav-weather').onclick = () => { currentScreen = 'mock-weather'; renderUI(); };
     document.getElementById('nav-sell').onclick = () => { currentScreen = 'mock-sell'; renderUI(); };
+    document.getElementById('nav-schemes').onclick = () => { currentScreen = 'schemes'; renderUI(); };
     document.getElementById('nav-comm').onclick = () => { currentScreen = 'mock-comm'; renderUI(); };
 }
 
@@ -950,7 +1058,7 @@ function renderChat() {
     appContainer.innerHTML = `
         <div class="view-header">
             <i class="fa-solid fa-arrow-left" id="back-home" style="font-size: 1.2rem; cursor:pointer;"></i>
-            <h3 style="flex:1; text-align:center;">Chat with Mitra</h3>
+            <h3 style="flex:1; text-align:center;">Ask problems to KrishiMitra</h3>
             <i class="fa-solid fa-comment-dots" style="color: var(--primary);"></i>
         </div>
         <div class="chat-container">
@@ -1004,6 +1112,7 @@ function renderChat() {
                 let s = replyObj.target.replace('nav-', '');
                 if (s === 'profit') s = 'mock-profit';
                 if (s === 'doctor') s = 'doctor';
+                if (replyObj.target === 'nav-schemes') s = 'schemes';
                 currentScreen = s;
                 renderUI();
             }, 4500); 
@@ -1157,14 +1266,29 @@ function renderDoctor() {
                     let dbCropKey = (typeof KrishiKnowledgeDB !== 'undefined' && KrishiKnowledgeDB[userCrop]) ? userCrop : "generic";
                     let rawDiagnosis = KrishiKnowledgeDB[dbCropKey].disease[lang] || "disease";
                     
-                    let msg = `${title}, I am ${scorePct}% sure this is ${rawDiagnosis}.<br><br>✔ Apply the recommended fungicide spray.<br>➡ Check back again in 3 days.`;
-                    if(lang === 'mr') msg = `${title}, mi ${scorePct}% sure aahe ki ha ${rawDiagnosis} aahe.<br><br>✔ योग्य बुरशीनाशक (Fungicide) फवारा.<br>➡ 3 दिवसात परत निरीक्षण करा.`;
-                    if(lang === 'pa') msg = `${title}, main ${scorePct}% sure haan ki eh ${rawDiagnosis} hai.<br><br>✔ Sahi ulti-nashak (Fungicide) spray karo.<br>➡ 3 din baad parakh karo.`;
-                    if(lang === 'hi') msg = `${title}, main ${scorePct}% sure hoon ki yeh ${rawDiagnosis} hai.<br><br>✔ Sahi fungicide spray karein.<br>➡ 3 din baad wapas check karein.`;
+                    let msg = `${title}, I am ${scorePct}% sure this is ${rawDiagnosis}.<br><br>✔ Apply the recommended fungicide spray.`;
+                    let followUpMsgVoice = "How many days has this problem been there? Tap the mic and tell me.";
+                    
+                    if(lang === 'mr') { 
+                        msg = `${title}, mi ${scorePct}% sure aahe ki ha ${rawDiagnosis} aahe.<br><br>✔ योग्य बुरशीनाशक (Fungicide) फवारा.`;
+                        followUpMsgVoice = "Tumhala ha problem kiti divsan pasun ahe? Mic dabu sanga.";
+                    } else if(lang === 'pa') {
+                        msg = `${title}, main ${scorePct}% sure haan ki eh ${rawDiagnosis} hai.<br><br>✔ Sahi ulti-nashak (Fungicide) spray karo.`;
+                        followUpMsgVoice = "Tuhanu eh problem kinne din ton hai? Mic dab ke dasso.";
+                    } else if(lang === 'hi') {
+                        msg = `${title}, main ${scorePct}% sure hoon ki yeh ${rawDiagnosis} hai.<br><br>✔ Sahi fungicide spray karein.`;
+                        followUpMsgVoice = "Aapko ye problem kitne din se hai? Kripya mic dabayein aur batayein.";
+                    }
 
                     document.getElementById('doctor-result').style.color = "var(--primary-dark)";
                     document.getElementById('doctor-result').innerHTML = `<i class='fa-solid fa-check-circle'></i> <span style="font-weight: 500;">${msg}</span>`;
-                    await speakAction(msg);
+                    
+                    // Trigger Smart Context Follow-up Memory Rule
+                    systemMemory.conversationState = 'awaiting_disease_duration';
+                    saveMemory();
+                    
+                    // Voice explicitly asks the follow-up question
+                    await speakAction(msg.replace(/<[^>]*>/g, '') + " " + followUpMsgVoice);
                 });
             };
         }
@@ -1260,7 +1384,7 @@ function renderProfile() {
 function getBottomNavHTML(activeTab) {
     return `<div class="bottom-nav">
             <div class="nav-item ${activeTab === 'home' ? 'active' : ''}" data-target="home"><i class="fa-solid fa-house"></i><span>Home</span></div>
-            <div class="nav-item ${activeTab === 'chat' || activeTab === 'doctor' ? 'active' : ''}" data-target="chat"><i class="fa-regular fa-comments"></i><span>Chat AI</span></div>
+            <div class="nav-item ${activeTab === 'chat' || activeTab === 'doctor' ? 'active' : ''}" data-target="chat"><i class="fa-regular fa-comments"></i><span>Ask AI</span></div>
             <div class="nav-item ${activeTab === 'mock-comm' ? 'active' : ''}" data-target="mock-comm"><i class="fa-solid fa-users"></i><span>Community</span></div>
             <div class="nav-item ${activeTab === 'profile' ? 'active' : ''}" data-target="profile"><i class="fa-regular fa-user"></i><span>Profile</span></div>
         </div>`;
@@ -1348,6 +1472,10 @@ function initGlobalMic() {
                 systemMemory.name = replyObj.value;
                 saveMemory();
                 renderUI(); 
+            } else if (replyObj.type === 'auto_apply' && replyObj.target) {
+                currentScreen = 'schemes';
+                renderUI();
+                setTimeout(() => window.doAutoApplyAnimation(replyObj.target), 600);
             } else if (replyObj.type === 'navigate' && replyObj.target) {
                 // Determine target screen from mapped card ID
                 let t = 'home';
@@ -1356,6 +1484,7 @@ function initGlobalMic() {
                 else if (replyObj.target === 'nav-sell') t = 'mock-sell';
                 else if (replyObj.target === 'nav-weather') t = 'mock-weather';
                 else if (replyObj.target === 'nav-profit') t = 'mock-profit';
+                else if (replyObj.target === 'nav-schemes') t = 'schemes';
                 else if (replyObj.target === 'nav-comm') t = 'mock-comm';
                 else if (replyObj.target === 'nav-profile') t = 'profile';
                 
@@ -1376,3 +1505,186 @@ function initGlobalMic() {
 // Startup
 renderUI();
 initGlobalMic();
+
+// ------------------------------------------------------------------
+// Phase 4: Schemes + Eligibility + Apply Flow
+// ------------------------------------------------------------------
+const schemesData = [
+    { id: 'scheme-pmkisan', name: "PM-Kisan Yojana", benefit: "₹6000 per year support", icon: "fa-rupee-sign", color: "#10b981" },
+    { id: 'scheme-soil', name: "Soil Health Card", benefit: "Free soil testing", icon: "fa-flask", color: "#3b82f6" },
+    { id: 'scheme-insurance', name: "Crop Insurance", benefit: "Protection against crop loss", icon: "fa-shield-halved", color: "#f59e0b" }
+];
+
+function renderSchemes() {
+    appContainer.innerHTML = `
+        <div class="screen" style="background: var(--bg-color);">
+            <div class="view-header" style="margin: -24px -24px 24px -24px;">
+                <i class="fa-solid fa-arrow-left" id="back-schemes" style="font-size: 1.2rem; cursor:pointer;"></i>
+                <h3 style="flex:1; text-align:center;">Govt Schemes</h3>
+                <i class="fa-solid fa-hand-holding-dollar" style="color: var(--primary);"></i>
+            </div>
+            
+            <p style="color: var(--text-muted); font-size: 1.05rem; font-weight: 500; margin-bottom: 24px;">Find and apply for grants, subsidies, and schemes.</p>
+            
+            <div id="schemes-list" style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 80px;">
+                ${schemesData.map(s => `
+                    <div class="scheme-card" id="${s.id}-card" style="background: white; border-radius: 20px; box-shadow: var(--shadow-md); overflow: hidden; transition: var(--transition);">
+                        <div style="padding: 24px; display: flex; gap: 16px; align-items: center;">
+                            <div style="background: ${s.color}20; color: ${s.color}; width: 60px; height: 60px; border-radius: 16px; display: flex; justify-content: center; align-items: center; font-size: 1.6rem; flex-shrink: 0;">
+                                <i class="fa-solid ${s.icon}"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <h4 style="font-size: 1.15rem; color: var(--text-main); margin-bottom: 4px;">${s.name}</h4>
+                                <p style="color: var(--primary); font-weight: 600; font-size: 0.95rem;">✔ ${s.benefit}</p>
+                            </div>
+                        </div>
+                        <div style="padding: 0 24px 24px 24px;">
+                            <button class="btn-primary" onclick="showEligibilityForm('${s.id}')" style="background: white; color: var(--primary); border: 2px solid var(--primary); box-shadow: none; font-size: 1rem; padding: 12px;">
+                                Check Eligibility
+                            </button>
+                        </div>
+                        
+                        <div id="${s.id}-form" style="display: none; padding: 24px; background: #f8fafc; border-top: 1px solid var(--border-color);">
+                            <h5 style="margin-bottom: 16px; font-size: 1rem; color: var(--text-main);">Eligibility Check</h5>
+                            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                                <input type="number" id="${s.id}-land" placeholder="Enter land size (in acres)" style="padding: 14px;">
+                                <input type="text" id="${s.id}-crop" placeholder="Enter crop type (e.g. Wheat)" style="padding: 14px;">
+                                <input type="text" id="${s.id}-state" placeholder="Enter state (e.g. Maharashtra)" value="${systemMemory.region || ''}" style="padding: 14px;">
+                            </div>
+                            <button class="btn-primary" onclick="processEligibility('${s.id}')" style="box-shadow: var(--shadow-sm); padding: 14px;">
+                                Check Now
+                            </button>
+                        </div>
+                        
+                        <div id="${s.id}-result" style="display: none; padding: 24px; text-align: center; border-top: 1px solid var(--border-color);">
+                            <!-- Results injected here -->
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ${getBottomNavHTML('none')}
+    `;
+    attachNavListeners();
+    document.getElementById('back-schemes').onclick = () => { currentScreen = 'home'; renderUI(); };
+}
+
+window.showEligibilityForm = function(schemeId) {
+    document.getElementById(schemeId + '-form').style.display = 'block';
+    document.getElementById(schemeId + '-result').style.display = 'none';
+};
+
+window.processEligibility = function(schemeId) {
+    const landEl = document.getElementById(schemeId + '-land');
+    const landSize = parseFloat(landEl.value);
+    
+    if (isNaN(landSize)) {
+        alert("Please enter a valid land size.");
+        return;
+    }
+    
+    const scheme = schemesData.find(s => s.id === schemeId);
+    const resultContainer = document.getElementById(schemeId + '-result');
+    const formContainer = document.getElementById(schemeId + '-form');
+    
+    // Hide form, show result
+    formContainer.style.display = 'none';
+    resultContainer.style.display = 'block';
+    
+    const isEligible = landSize < 5;
+    
+    if (isEligible) {
+        resultContainer.style.background = '#f0fdf4';
+        resultContainer.innerHTML = `
+            <div style="color: var(--primary-dark); font-size: 3rem; margin-bottom: 12px;"><i class="fa-solid fa-circle-check"></i></div>
+            <h4 style="color: var(--primary-dark); font-size: 1.2rem; margin-bottom: 12px;">आप इस योजना के लिए योग्य हैं</h4>
+            <div style="text-align: left; background: white; padding: 16px; border-radius: 12px; margin-bottom: 24px; box-shadow: var(--shadow-sm); border: 1px solid #bbf7d0;">
+                <p style="color: var(--text-main); font-weight: 600; margin-bottom: 8px;">✔ Benefit: ${scheme.benefit}</p>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">➡ Next: Apply now for subsidy transfer.</p>
+            </div>
+            <button class="btn-primary" onclick="applyForScheme('${scheme.name}')" style="font-size: 1.15rem; padding: 18px; box-shadow: var(--shadow-floating); animation: pulseGlow 1.5s infinite;">
+                <i class="fa-solid fa-paper-plane"></i> Apply Now with KrishiMitra
+            </button>
+        `;
+        
+        let msg = "आप इस योजना के लिए योग्य हैं. अभी अप्लाई करें कृषिमित्र के साथ।";
+        if(systemMemory.language.startsWith('en')) msg = "You are eligible for this scheme! Apply now with KrishiMitra.";
+        if(systemMemory.language.startsWith('mr')) msg = "तुम्ही या योजनेसाठी पात्र आहात. कृषिमित्र सोबत आताच अर्ज करा.";
+        if(systemMemory.language.startsWith('pa')) msg = "ਤੁਸੀਂ ਇਸ ਸਕੀਮ ਲਈ ਯੋਗ ਹੋ। ਕ੍ਰਿਸ਼ੀਮਿੱਤਰ ਨਾਲ ਹੁਣੇ ਅਰਜ਼ੀ ਦਿਓ।";
+        speakText(msg, systemMemory.language);
+    } else {
+        resultContainer.style.background = '#fef2f2';
+        resultContainer.innerHTML = `
+            <div style="color: #ef4444; font-size: 3rem; margin-bottom: 12px;"><i class="fa-solid fa-circle-xmark"></i></div>
+            <h4 style="color: #991b1b; font-size: 1.2rem; margin-bottom: 12px;">आप इस योजना के लिए योग्य नहीं हैं</h4>
+            <p style="color: var(--text-muted); font-weight: 500; margin-bottom: 24px;">➡ Try another scheme for large unconstrained farm lands.</p>
+            <button class="btn-secondary" onclick="document.getElementById('${schemeId}-result').style.display='none'; document.getElementById('${schemeId}-form').style.display='block';">
+                <i class="fa-solid fa-arrow-left-long"></i> Try Again
+            </button>
+        `;
+        
+        let msg = "आप इस योजना के लिए योग्य नहीं हैं. कृपया अन्य योजनाएं देंखे।";
+        if(systemMemory.language.startsWith('en')) msg = "You are not eligible for this scheme. Land size exceeds limits. Please explore other schemes.";
+        if(systemMemory.language.startsWith('mr')) msg = "तुम्ही या योजनेसाठी पात्र नाही. कृपया इतर योजना पहा.";
+        if(systemMemory.language.startsWith('pa')) msg = "ਤੁਸੀਂ ਇਸ ਸਕੀਮ ਲਈ ਯੋਗ ਨਹੀਂ ਹੋ। ਕਿਰਪਾ ਕਰਕੇ ਹੋਰ ਸਕੀਮਾਂ ਦੇਖੋ।";
+        speakText(msg, systemMemory.language);
+    }
+};
+
+window.applyForScheme = function(schemeName) {
+    let msg = "KrishiMitra aapki madad karega apply karne mein. Hum jaldi apko sampark karenge.";
+    if(systemMemory.language.startsWith('en')) msg = "KrishiMitra will help you apply. We will contact you shortly.";
+    if(systemMemory.language.startsWith('mr')) msg = "कृषिमित्र तुम्हाला अर्ज करण्यास मदत करेल. आम्ही लवकरच तुमच्याशी संपर्क साधू.";
+    if(systemMemory.language.startsWith('pa')) msg = "ਕ੍ਰਿਸ਼ੀਮਿੱਤਰ ਅਰਜ਼ੀ ਦੇਣ ਵਿੱਚ ਤੁਹਾਡੀ ਮਦਦ ਕਰੇਗਾ। ਅਸੀਂ ਜਲਦੀ ਹੀ ਤੁਹਾਡੇ ਨਾਲ ਸੰਪਰਕ ਕਰਾਂਗੇ।";
+    
+    alert(msg);
+    speakAction("Success! " + msg);
+};
+
+// FULLY AUTOMATED VIP AI APPLY ANIMATION
+window.doAutoApplyAnimation = async function(schemeId) {
+    const scheme = schemesData.find(s => s.id === schemeId);
+    
+    // 1. Navigate and Highlight Card
+    highlightCard(schemeId + '-card');
+    showEligibilityForm(schemeId);
+    
+    // 2. Typewriter Effect Simulation
+    await new Promise(r => setTimeout(r, 1200));
+    document.getElementById(schemeId + '-land').value = '2';
+    await new Promise(r => setTimeout(r, 600));
+    document.getElementById(schemeId + '-crop').value = systemMemory.crops.length > 0 ? systemMemory.crops[0] : 'Wheat';
+    await new Promise(r => setTimeout(r, 600));
+    
+    // 3. Process Checking
+    processEligibility(schemeId);
+    
+    // 4. Read Verification and Benefit
+    await new Promise(r => setTimeout(r, 800));
+    let benMsg = "Eligibility verified. The benefit is: " + scheme.benefit;
+    if (systemMemory.language.startsWith('hi')) benMsg = "पात्रता सत्यापित। लाभ है: " + scheme.benefit;
+    if (systemMemory.language.startsWith('mr')) benMsg = "पात्रता पडताळली. लाभ आहे: " + scheme.benefit;
+    if (systemMemory.language.startsWith('pa')) benMsg = "ਯੋਗਤਾ ਤਸਦੀਕ ਕੀਤੀ। ਲਾਭ ਹੈ: " + scheme.benefit;
+    
+    await speakText(benMsg, systemMemory.language);
+    
+    // 5. Huge Visual Success Injection (Replaces Eligibility screen)
+    await new Promise(r => setTimeout(r, 1000));
+    const resultContainer = document.getElementById(schemeId + '-result');
+    resultContainer.innerHTML = `
+        <div style="background: var(--primary); color: white; padding: 40px 20px; border-radius: 20px; text-align: center; box-shadow: 0 15px 35px rgba(16, 185, 129, 0.4); animation: slideInUp 0.5s ease-out;">
+            <i class="fa-solid fa-file-shield" style="font-size: 5rem; margin-bottom: 24px; display: block; animation: pulseGlow 1.5s infinite;"></i>
+            <h2 style="font-size: 2rem; margin-bottom: 16px; font-weight: 800;">SUCCESSFULLY APPLIED!</h2>
+            <h4 style="font-size: 1.4rem; margin-bottom: 16px; color: #dcfce7;">${scheme.name}</h4>
+            <p style="font-size: 1.15rem; opacity: 0.95; line-height: 1.6;">KrishiMitra AI has successfully securely filled and submitted all details on your behalf.</p>
+        </div>
+    `;
+    
+    // 6. Final Voice Success
+    let endMsg = "I have successfully applied for the " + scheme.name + " on your behalf.";
+    if (systemMemory.language.startsWith('hi')) endMsg = `मैंने आपकी ओर से ${scheme.name} के लिए आवेदन कर दिया है।`;
+    if (systemMemory.language.startsWith('mr')) endMsg = `मी तुमच्या वतीने ${scheme.name} साठी यशस्वीरित्या अर्ज केला आहे.`;
+    if (systemMemory.language.startsWith('pa')) endMsg = `ਮੈਂ ਤੁਹਾਡੀ ਤਰਫੋਂ ${scheme.name} ਲਈ ਸਫਲਤਾਪੂਰਵਕ ਅਰਜ਼ੀ ਦੇ ਦਿੱਤੀ ਹੈ।`;
+    
+    speakText(endMsg, systemMemory.language);
+};

@@ -19,13 +19,13 @@ India has 150+ million farmers, many of whom struggle with complex and non-user-
 
 KrishiMitra aims to change this.
 
-With its voice-first and low-internet design, it has the potential to empower millions of farmers by turning complex agricultural decisions into simple conversations. Even if adopted by just 10% of farmers, it can impact 14+ million lives.
+With its voice-first and low-internet design, it has the potential to empower millions of farmers by turning complex agricultural decisions into simple conversations. Even if adopted by just 10% of farmers, it can impact 15+ million lives.
 
 Not just a hackathon project — a scalable solution built for Bharat, designed for real farmers of india . 🌱
 
 ---
 
-## 🚀 Deep Technical Feature Breakdown (The "WOW" Factor)
+## 🚀 Deep Technical Feature Breakdown 
 
 ### 1. "Ask KrishiMitra" Master AI Controller (Zero-Tap Navigation)
 * **The Concept:** A universal voice assistant that understands intent and navigates the app for the illiterate user.

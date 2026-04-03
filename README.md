@@ -15,7 +15,7 @@ It is a **Voice-Operated, Offline-Resilient, Zero-Typing AI Companion**. The use
 
 ## 🌾 Impact & Vision
 
-India has 140+ million farmers, many of whom struggle with complex and non-user-friendly digital tools.
+India has 150+ million farmers, many of whom struggle with complex and non-user-friendly digital tools.
 
 KrishiMitra aims to change this.
 
